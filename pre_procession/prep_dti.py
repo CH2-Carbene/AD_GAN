@@ -113,7 +113,6 @@ def make_one_dti(pname,pdict):
         for x in bval_arr:
             if x==0:t+=1
             f.write(f"{1} ")
-    # sh(f"fslmerge -t ../b0.nii.gz {b0list_str}",base_dir="tmp/b0tmp")
 
     
     sh("topup --config=b02b0.cnf --datain=acqp.txt --imain=allb0.nii.gz --out=tpbase --iout=b0_corrected.nii.gz --fout=b0_field.nii.gz --logout=b0_topup.log -v",name="4_topup")
@@ -138,9 +137,6 @@ def make_one_dti(pname,pdict):
 
 
 
-
-
-# help(os.listdir)
 
 if __name__=="__main__":
     
