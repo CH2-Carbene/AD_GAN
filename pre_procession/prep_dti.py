@@ -112,7 +112,7 @@ def make_one_dti(pname,pdict):
         t=0
         for x in bval_arr:
             if x==0:t+=1
-            f.write(f"{1} ")
+            f.write(f"{t} ")
 
     
     sh("topup --config=b02b0.cnf --datain=acqp.txt --imain=allb0.nii.gz --out=tpbase --iout=b0_corrected.nii.gz --fout=b0_field.nii.gz --logout=b0_topup.log -v",name="4_topup")
