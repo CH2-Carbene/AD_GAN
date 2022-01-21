@@ -1,4 +1,3 @@
-
 import os,shutil,sys
 def run_sh(cmd,name="unknown",base_dir="tmp"):
     # tcmd=
@@ -121,17 +120,17 @@ def make_one_dti(pname,pdict):
     # topup afterwards
     #TODO check topup result here!
     sh("fslmaths ./b0_corrected.nii.gz -Tmean ./b0_corrected_Tmean.nii.gz",name="4_topup_tmean")
-    sh("bet b0_corrected_Tmean.nii.gz b0_brain.nii.gz -m",name="4_topup_bet")
+    sh("bet b0_corrected_Tmean.nii.gz b0_brain.nii.gz -f 0.3 -g 0 -m",name="4_topup_bet")
     #TODO check bet result here!
 
     
-    sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected.nii.gz --ref_scan_no=0 --ol_nstd=4 --topup=tpbase -v",name="5_eddy")
+    sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected --ref_scan_no=0 --ol_nstd=4 --topup=tpbase -v",name="5_eddy")
 
     
     os.makedirs(f"{TMP}/fitresult",exist_ok=True)
-    sh("dtifit --data=data_corrected.nii.gz --out=fitresult/dti --mask=b0_brain_mask.nii.gz --bvecs=data_corrected.eddy_rotated_bvecs --bvals=dti.bval --sse --save_tensor",name="6_dtifit",base_dir="tmp")
+    sh("dtifit --data=data_corrected --out=fitresult/dti --mask=b0_brain_mask.nii.gz --bvecs=data_corrected.eddy_rotated_bvecs --bvals=dti.bval --sse --save_tensor",name="6_dtifit",base_dir="tmp")
 
-    
+    os.makedirs(f"result/{pname}",exist_ok=True)    
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
