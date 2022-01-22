@@ -49,7 +49,7 @@ def make_one_dti_topup(pname,pdict):
     TMP=f"{pname}/tmp"
     sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
 
-    if os.path.exists(os.join(TMP,"b0_brain_mask.nii.gz")):
+    if os.path.exists(os.path.join(TMP,"b0_brain_mask.nii.gz")):
         print("{pname} topup already finished, passed!",file=sys.stderr)
         return
     
@@ -149,7 +149,7 @@ def make_one_dti_eddy(pname,pdict):
     TMP=f"{pname}/tmp"
     sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
 
-    if not os.path.exists(os.join(TMP,"b0_brain_mask.nii.gz")):
+    if not os.path.exists(os.path.join(TMP,"b0_brain_mask.nii.gz")):
         raise TNFException("Topup not finished!")
         print("Warning: {pname} topup not finished, retrying...",file=sys.stderr)
     
