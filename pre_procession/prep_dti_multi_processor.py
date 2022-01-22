@@ -1,12 +1,15 @@
 import multiprocessing
 import os,shutil,sys
-def run_sh(cmd,name="unknown",base_dir="tmp"):
+max_fail_time=5
+pn_tp_default,pn_eddy_default=40,16
+
+def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
     # tcmd=
     print(cmd)
     res=os.system(f"cd {base_dir} && {cmd}")
     if res!=0:
         raise Exception(f"{name} Error!")
-    print(f"{name}: {cmd.split()[0]} Successfully!")
+    print(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
 # print(a)
 def getdirs(rt_dir="."):
     pres={}
@@ -33,14 +36,23 @@ def getdirs(rt_dir="."):
                     pdict["dti"]=td
         if "t1" in pdict or ("dti" in pdict and "b0" in pdict):
             pres[pname]=pdict
+
+    finished_list=os.listdir("./result")
+    for finished_name in finished_list:
+        pres.pop(finished_name)
     return pres
 # print(getdirs())
-def make_one_dti(pname,pdict):
-    print(pname,pdict)
+def make_one_dti_topup(pname,pdict):
+    print(f"Working with {pname} to topup:",file=sys.stderr)
+    
 
     TMP=f"{pname}/tmp"
-    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir))
+    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
 
+    if os.path.exists(os.join(TMP,"b0_brain_mask.nii.gz")):
+        print("{pname} topup already finished, passed!",file=sys.stderr)
+        return
+    
     if os.path.exists(TMP):
         shutil.rmtree(TMP)
     os.makedirs(TMP)
@@ -124,6 +136,22 @@ def make_one_dti(pname,pdict):
     sh("bet b0_corrected_Tmean.nii.gz b0_brain.nii.gz -f 0.3 -g 0 -m",name="4_topup_bet")
     #TODO check bet result here!
 
+class TNFException(BaseException):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+def make_one_dti_eddy(pname,pdict):
+    print(f"Working with {pname} to eddy:",file=sys.stderr)
+    
+
+    TMP=f"{pname}/tmp"
+    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
+
+    if not os.path.exists(os.join(TMP,"b0_brain_mask.nii.gz")):
+        raise TNFException("Topup not finished!")
+        print("Warning: {pname} topup not finished, retrying...",file=sys.stderr)
     
     sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected --ref_scan_no=0 --ol_nstd=4 --topup=tpbase -v",name="5_eddy")
 
@@ -135,25 +163,47 @@ def make_one_dti(pname,pdict):
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
-def run_make(pname,pdict):
-    sys.stderr.write(f"{pname} process start...\n")
-    try:
-        make_one_dti(pname,pdict)
-        sys.stderr.write(f"handle {pname} successfully!\n")
-    except Exception as e:
-        print(e)
-        sys.stderr.write(f"handle {pname} Error: {e}\n")
+
+def run_make_topup(pname,pdict):
+    print(f"{pname} process start...",file=sys.stderr)
+    for i in range(max_fail_time):
+        try:
+            make_one_dti_topup(pname,pdict)
+            print(f"handle {pname} successfully!",file=sys.stderr)
+            return
+        except Exception as e:
+            print(e)
+            print(f"handle {pname} Error: {e}{', retrying...' if i<4 else '.'}",file=sys.stderr)
+    raise Exception(pname,f"{pname} topup failed.")
+
+def run_make_eddy(pname,pdict):
+    print(f"{pname} process start...",file=sys.stderr)
+    for i in range(max_fail_time):
+        try:
+            make_one_dti_eddy(pname,pdict)
+            print(f"handle {pname} successfully!",file=sys.stderr)
+            return
+        except TNFException as e:
+            print(f"handle {pname} Error: {e}, process failed.",file=sys.stderr)
+            break
+            # raise Exception(pname,f"{pname} eddy failed.")
+        except Exception as e:
+            print(e)
+            print(f"handle {pname} Error: {e}{', retrying...' if i<4 else '.'}",file=sys.stderr)
+
+    raise Exception(pname,f"{pname} eddy failed.")
 
 if __name__=="__main__":
 
     try:
-        processor_num=int(sys.argv[1])
+        pn_tp,pn_eddy=int(sys.argv[1],sys.argv[2])
     except:
-        processor_num=8
-    sys.stderr.write(f"processor_num: {processor_num}\n")
+        pn_tp,pn_eddy=pn_tp_default,pn_eddy_default
+    print(f"processor_num: {(pn_tp,pn_eddy)}",file=sys.stderr)
 
     os.makedirs("checkpoints",exist_ok=True)
     os.makedirs("result",exist_ok=True)
+    
     # patients={
     #     "CLW_pilot-cbcp-016_103221":{
     #         "t1":{"dir":"t1_iso0.8_P2_NIF_301"},
@@ -162,14 +212,23 @@ if __name__=="__main__":
     #     }
     # }
     patients=getdirs()
-    sys.stderr.write(f"Get patients dict:{patients}\n")
+    print(f"Get unfinished patients dict:{patients}",file=sys.stderr)
+    fail_set=set()
     # raise Exception("114!")
     # exit()
-    mulpool = multiprocessing.Pool(processes=processor_num)
+    mulpool_tp = multiprocessing.Pool(processes=pn_tp)
     for pname,pdict in patients.items():
-        mulpool.apply_async(run_make, args=(pname,pdict,))
+        mulpool_tp.apply_async(run_make_topup,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
     # pname,pdict=list(patients.items())[0]
-    mulpool.close()
-    mulpool.join()
-    sys.stderr.write('Process finished!\n')
-        
+    mulpool_tp.close()
+    mulpool_tp.join()
+
+    mulpool_ed = multiprocessing.Pool(processes=pn_eddy)
+    for pname,pdict in patients.items():
+        mulpool_ed.apply_async(run_make_eddy,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
+    # pname,pdict=list(patients.items())[0]
+    mulpool_ed.close()
+    mulpool_ed.join()
+
+    print('Process finished!',file=sys.stderr)
+    print(f"Fail ID:\n{' '.join(fail_set)}",file=sys.stderr)
