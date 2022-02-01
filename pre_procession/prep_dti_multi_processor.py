@@ -6,8 +6,9 @@ pn_tp_default,pn_eddy_default=40,16
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
     # tcmd=
     print(cmd)
-    res=os.system(f"cd {base_dir} && {cmd}")
+    res=os.system(f"cd {base_dir} && {cmd} 2>&1")
     if res!=0:
+        print(f"{pname}.{name}: {cmd.split()[0]} Failed!")
         raise Exception(f"{name} Error!")
     print(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
 # print(a)
@@ -165,17 +166,20 @@ def make_one_dti_eddy(pname,pdict):
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
-
+def show(s,file):
+    print(s,file=sys.stderr)
+    print(s)
+    
 def run_make_topup(pname,pdict):
-    print(f"{pname} process start...",file=sys.stderr)
+    show(f"{pname} process start...",file=sys.stderr)
     for i in range(max_fail_time):
         try:
             make_one_dti_topup(pname,pdict)
-            print(f"handle {pname} successfully!",file=sys.stderr)
+            show(f"handle {pname} successfully!",file=sys.stderr)
             return
         except Exception as e:
             print(e)
-            print(f"handle {pname} Error: {e}{', retrying...' if i<4 else '.'}",file=sys.stderr)
+            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}",file=sys.stderr)
     raise Exception(pname,f"{pname} topup failed.")
 
 def run_make_eddy(pname,pdict):
@@ -183,15 +187,15 @@ def run_make_eddy(pname,pdict):
     for i in range(max_fail_time):
         try:
             make_one_dti_eddy(pname,pdict)
-            print(f"handle {pname} successfully!",file=sys.stderr)
+            show(f"handle {pname} successfully!",file=sys.stderr)
             return
         except TNFException as e:
-            print(f"handle {pname} Error: {e}, process failed.",file=sys.stderr)
+            show(f"handle {pname} Error: {e}, process failed.",file=sys.stderr)
             break
             # raise Exception(pname,f"{pname} eddy failed.")
         except Exception as e:
-            print(e)
-            print(f"handle {pname} Error: {e}{', retrying...' if i<4 else '.'}",file=sys.stderr)
+            # print(e)
+            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}",file=sys.stderr)
 
     raise Exception(pname,f"{pname} eddy failed.")
 
