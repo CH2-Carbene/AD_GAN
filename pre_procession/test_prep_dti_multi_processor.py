@@ -1,11 +1,7 @@
 import multiprocessing
 import os,shutil,sys
 max_fail_time=5
-pn_tp_default,pn_eddy_default=40,16
-
-def show(s,file):
-    print(s,file=sys.stderr)
-    print(s)
+pn_tp_default,pn_eddy_default=1,1
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
     # tcmd=
@@ -48,8 +44,9 @@ def getdirs(rt_dir="."):
     return pres
 # print(getdirs())
 def make_one_dti_topup(pname,pdict):
-    show(f"Working with {pname} to topup:")
+    print(f"Working with {pname} to topup:",file=sys.stderr)
     
+
     TMP=f"{pname}/tmp"
     sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
 
@@ -105,6 +102,9 @@ def make_one_dti_topup(pname,pdict):
     os.makedirs(f"{TMP}/b0tmp",exist_ok=True)
     for id in idlist:
         sh(f"fslroi data b0tmp/{id} {id} 1",name="3_roi_merge")
+
+
+
     
     def getdy(aw):
         if aw=="AP": return -1
@@ -131,7 +131,7 @@ def make_one_dti_topup(pname,pdict):
             if x==0:t+=1
             f.write(f"{t} ")
 
-    
+    '''
     sh("topup --config=b02b0.cnf --datain=acqp.txt --imain=allb0.nii.gz --out=tpbase --iout=b0_corrected.nii.gz --fout=b0_field.nii.gz --logout=b0_topup.log -v",name="4_topup")
 
     
@@ -140,6 +140,7 @@ def make_one_dti_topup(pname,pdict):
     sh("fslmaths ./b0_corrected.nii.gz -Tmean ./b0_corrected_Tmean.nii.gz",name="4_topup_tmean")
     sh("bet b0_corrected_Tmean.nii.gz b0_brain.nii.gz -f 0.3 -g 0 -m",name="4_topup_bet")
     #TODO check bet result here!
+    '''
 
 class TNFException(BaseException):
     def __init__(self, value):
@@ -148,7 +149,7 @@ class TNFException(BaseException):
         return repr(self.value)
 
 def make_one_dti_eddy(pname,pdict):
-    show(f"Working with {pname} to eddy:")
+    print(f"Working with {pname} to eddy:",file=sys.stderr)
     
 
     TMP=f"{pname}/tmp"
@@ -157,7 +158,7 @@ def make_one_dti_eddy(pname,pdict):
     if not os.path.exists(os.path.join(TMP,"b0_brain_mask.nii.gz")):
         raise TNFException("Topup not finished!")
         print("Warning: {pname} topup not finished, retrying...",file=sys.stderr)
-    
+    '''
     sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected --ref_scan_no=0 --ol_nstd=4 --topup=tpbase -v",name="5_eddy")
 
     sh("rm data.nii",name="6_rmdata")
@@ -169,8 +170,11 @@ def make_one_dti_eddy(pname,pdict):
     os.makedirs(f"result/{pname}",exist_ok=True)    
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
-
-
+    '''
+    
+def show(s,file):
+    print(s,file=sys.stderr)
+    print(s)
     
 def run_make_topup(pname,pdict):
     show(f"{pname} process start...",file=sys.stderr)
