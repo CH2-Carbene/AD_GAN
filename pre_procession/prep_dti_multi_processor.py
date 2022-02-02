@@ -19,6 +19,7 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
 def getdirs(rt_dir="."):
     pres={}
     plist=os.listdir(rt_dir)
+    plist.sort()
     for pname in plist:
         if not os.path.isdir(pname):continue
         slist=os.listdir(os.path.join(rt_dir,pname))

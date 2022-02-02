@@ -76,7 +76,7 @@ def make_one_dti_topup(pname,pdict):
     else:
         sh(f"dcm2niix -b y -z y -x n -t n -m n -f b0 -o . -s n -v n ../{b0fp}",name="1_dcm2nii_b0")
     # raise("dcm2niix finish!")
-
+'''
     sh(f"fslreorient2std dti dti",name="2_reorient_dti")
     sh(f"fslreorient2std b0 b0",name="2_reorient_b0")
 
@@ -131,7 +131,7 @@ def make_one_dti_topup(pname,pdict):
             if x==0:t+=1
             f.write(f"{t} ")
 
-    '''
+    
     sh("topup --config=b02b0.cnf --datain=acqp.txt --imain=allb0.nii.gz --out=tpbase --iout=b0_corrected.nii.gz --fout=b0_field.nii.gz --logout=b0_topup.log -v",name="4_topup")
 
     
@@ -230,17 +230,21 @@ if __name__=="__main__":
     # exit()
     mulpool_tp = multiprocessing.Pool(processes=pn_tp)
     for pname,pdict in patients.items():
-        mulpool_tp.apply_async(run_make_topup,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
+        try:
+            run_make_topup(pname,pdict)
+        except Exception as e:
+            fail_set.add(e.args[0])
+        # mulpool_tp.apply_async(run_make_topup,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
     # pname,pdict=list(patients.items())[0]
     mulpool_tp.close()
     mulpool_tp.join()
 
-    mulpool_ed = multiprocessing.Pool(processes=pn_eddy)
-    for pname,pdict in patients.items():
-        mulpool_ed.apply_async(run_make_eddy,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
-    # pname,pdict=list(patients.items())[0]
-    mulpool_ed.close()
-    mulpool_ed.join()
+    # mulpool_ed = multiprocessing.Pool(processes=pn_eddy)
+    # for pname,pdict in patients.items():
+    #     mulpool_ed.apply_async(run_make_eddy,args=(pname,pdict,),error_callback=lambda e:fail_set.add(e.args[0]))
+    # # pname,pdict=list(patients.items())[0]
+    # mulpool_ed.close()
+    # mulpool_ed.join()
 
     print('Process finished!',file=sys.stderr)
     print(f"Fail ID:\n{' '.join(fail_set)}",file=sys.stderr)
