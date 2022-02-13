@@ -3,9 +3,9 @@ import os,shutil,sys
 max_fail_time=5
 pn_tp_default,pn_eddy_default=40,16
 
-def show(s,file):
-    print(s,file=sys.stderr)
+def show(s):
     print(s)
+    print(s,file=sys.stderr)
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
     # tcmd=
@@ -174,31 +174,31 @@ def make_one_dti_eddy(pname,pdict):
 
     
 def run_make_topup(pname,pdict):
-    show(f"{pname} process start...",file=sys.stderr)
+    show(f"{pname} process start...")
     for i in range(max_fail_time):
         try:
             make_one_dti_topup(pname,pdict)
-            show(f"handle {pname} successfully!",file=sys.stderr)
+            show(f"handle {pname} successfully!")
             return
         except Exception as e:
             print(e)
-            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}",file=sys.stderr)
+            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}")
     raise Exception(pname,f"{pname} topup failed.")
 
 def run_make_eddy(pname,pdict):
-    print(f"{pname} process start...",file=sys.stderr)
+    show(f"{pname} process start...")
     for i in range(max_fail_time):
         try:
             make_one_dti_eddy(pname,pdict)
-            show(f"handle {pname} successfully!",file=sys.stderr)
+            show(f"handle {pname} successfully!")
             return
         except TNFException as e:
-            show(f"handle {pname} Error: {e}, process failed.",file=sys.stderr)
+            show(f"handle {pname} Error: {e}, process failed.")
             break
             # raise Exception(pname,f"{pname} eddy failed.")
         except Exception as e:
             # print(e)
-            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}",file=sys.stderr)
+            show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}")
 
     raise Exception(pname,f"{pname} eddy failed.")
 
