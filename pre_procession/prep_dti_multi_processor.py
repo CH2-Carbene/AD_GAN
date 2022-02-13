@@ -1,4 +1,5 @@
 import multiprocessing
+import subprocess
 import os,shutil,sys
 max_fail_time=5
 pn_tp_default,pn_eddy_default=40,16
@@ -7,14 +8,17 @@ def show(s):
     print(s)
     print(s,file=sys.stderr)
 
-def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown"):
+def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
     print(cmd)
-    res=os.system(f"cd {base_dir} && {cmd} 2>&1")
-    if res!=0:
+    ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1")
+    outputs.append(ret.stdout.decode("utf-8"))
+    if ret.returncode!=0:
         print(f"{pname}.{name}: {cmd.split()[0]} Failed!")
         raise Exception(f"{name} Error!")
     print(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
+    
+
 # print(a)
 def getdirs(rt_dir="."):
     pres={}
@@ -48,11 +52,12 @@ def getdirs(rt_dir="."):
         pres.pop(finished_name)
     return pres
 # print(getdirs())
-def make_one_dti_topup(pname,pdict):
+def make_one_dti_topup(pname,pdict,outputs):
     show(f"Working with {pname} to topup:")
     
     TMP=f"{pname}/tmp"
-    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
+    
+    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname,outputs=outputs)
 
     if os.path.exists(os.path.join(TMP,"b0_brain_mask.nii.gz")):
         print(f"{pname} topup already finished, passed!",file=sys.stderr)
@@ -95,9 +100,13 @@ def make_one_dti_topup(pname,pdict):
     sh(f"fslroi b0 b0_roi 0 {dimx} 0 {dimy} 0 {dimz}",name="2_roi_b0")
 
     print(dimx,dimy,dimz,b0dimt)
-
+    #TODO dwidenoise && mrdegibbs
+    sh("dwidenoise b0_roi.nii.gz b0_dns1.nii.gz",name="2.5_denoise")
+    sh("mrdegibbs b0_dns1.nii.gz b0_dns.nii.gz",name="2.5_denoise")
+    sh("dwidenoise dti_roi.nii.gz dti_dns1.nii.gz",name="2.5_denoise")
+    sh("mrdegibbs dti_dns1.nii.gz dti_dns.nii.gz",name="2.5_denoise")
     
-    sh("fslchfiletype NIFTI dti_roi data","fslchfiletype")
+    sh("fslchfiletype NIFTI dti_dns data","fslchfiletype")
     with open(f"{TMP}/dti.bval") as f:
         bval_arr=list(map(int,f.readline().split()))
     idlist=[]
@@ -113,7 +122,7 @@ def make_one_dti_topup(pname,pdict):
         else: raise Exception("unknown M direction!")
     b0list_str=" ".join(map(str,idlist))
     sh(f"fslmerge -t ../datab0.nii.gz {b0list_str}",base_dir="tmp/b0tmp",name="3_roi_merge")
-    sh(f"fslmerge -t allb0.nii.gz datab0.nii.gz b0_roi.nii.gz",name="3_roi_merge")
+    sh(f"fslmerge -t allb0.nii.gz datab0.nii.gz b0_dns.nii.gz",name="3_roi_merge")
     shutil.rmtree(f"{TMP}/b0tmp")
     # os.remove("tmp/datab0.nii.gz")
     # os.remove("tmp/b0_roi.nii.gz")
@@ -148,12 +157,12 @@ class TNFException(BaseException):
     def __str__(self):
         return repr(self.value)
 
-def make_one_dti_eddy(pname,pdict):
+def make_one_dti_eddy(pname,pdict,outputs):
     show(f"Working with {pname} to eddy:")
     
 
     TMP=f"{pname}/tmp"
-    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname)
+    sh=lambda cmd,name="unknown",base_dir="tmp":run_sh(cmd,name=name,base_dir=os.path.join(pname,base_dir),pname=pname,outputs=outputs)
 
     if not os.path.exists(os.path.join(TMP,"b0_brain_mask.nii.gz")):
         raise TNFException("Topup not finished!")
@@ -167,30 +176,36 @@ def make_one_dti_eddy(pname,pdict):
     os.makedirs(f"{TMP}/fitresult",exist_ok=True)
     sh("dtifit --data=data_corrected --out=fitresult/dti --mask=b0_brain_mask.nii.gz --bvecs=data_corrected.eddy_rotated_bvecs --bvals=dti.bval --sse --save_tensor",name="6_dtifit",base_dir="tmp")
 
-    os.makedirs(f"result/{pname}",exist_ok=True)    
+    os.makedirs(f"result/{pname}",exist_ok=True)
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
 
     
 def run_make_topup(pname,pdict):
+    outputs=[]
     show(f"{pname} process start...")
     for i in range(max_fail_time):
         try:
-            make_one_dti_topup(pname,pdict)
+            make_one_dti_topup(pname,pdict,outputs)
             show(f"handle {pname} successfully!")
+            show("".join(outputs))
             return
         except Exception as e:
-            print(e)
+            # print(e)
             show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}")
+            
+    show("".join(outputs))
     raise Exception(pname,f"{pname} topup failed.")
 
 def run_make_eddy(pname,pdict):
+    outputs=[]
     show(f"{pname} process start...")
     for i in range(max_fail_time):
         try:
-            make_one_dti_eddy(pname,pdict)
+            make_one_dti_eddy(pname,pdict,outputs)
             show(f"handle {pname} successfully!")
+            show("".join(outputs))
             return
         except TNFException as e:
             show(f"handle {pname} Error: {e}, process failed.")
@@ -199,7 +214,7 @@ def run_make_eddy(pname,pdict):
         except Exception as e:
             # print(e)
             show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}")
-
+    show("".join(outputs))
     raise Exception(pname,f"{pname} eddy failed.")
 
 if __name__=="__main__":
@@ -208,7 +223,7 @@ if __name__=="__main__":
         pn_tp,pn_eddy=int(sys.argv[1],sys.argv[2])
     except:
         pn_tp,pn_eddy=pn_tp_default,pn_eddy_default
-    print(f"processor_num: {(pn_tp,pn_eddy)}",file=sys.stderr)
+    show(f"processor_num: {(pn_tp,pn_eddy)}")
 
     os.makedirs("checkpoints",exist_ok=True)
     os.makedirs("result",exist_ok=True)
