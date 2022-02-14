@@ -12,7 +12,8 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
     print(cmd)
     ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True)
-    outputs.append(ret.stdout.decode("utf-8"))
+    if ret.stdout is not None:
+        outputs.append(ret.stdout.decode("utf-8"))
     if ret.returncode!=0:
         print(f"{pname}.{name}: {cmd.split()[0]} Failed!")
         raise Exception(f"{name} Error!")

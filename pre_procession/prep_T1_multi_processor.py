@@ -77,9 +77,9 @@ def make_one_T1(pname,pdict,outputs):
     sh(f"N4BiasFieldCorrection -d 3 --input-image t1_denoise.nii.gz --output t1_n4correct.nii.gz",name="4_N4correction")
     sh(f"flirt -in t1_n4correct.nii.gz -ref ~/data/template/MNI152_T1_0.8mm.nii.gz -out t1_ACPC.nii.gz -omat t1_ACPC.mat -dof 6",name="5_t1_to_acpc")
     sh(f"bet t1_ACPC.nii.gz t1_ACPC_brain.nii.gz -f 0.50 -R -s",name="6_t1_bet")
-    
+
     os.makedirs(f"result/{pname}",exist_ok=True)
-    sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
+    sh(f"cp -t result/{pname} {TMP}/t1_ACPC.nii.gz {TMP}/t1_ACPC_brain.nii.gz {TMP}/t1_ACPC.mat","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
 def run_make_T1(pname,pdict):
