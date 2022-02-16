@@ -180,6 +180,7 @@ def make_one_dti_eddy(pname,pdict,outputs):
 
     os.makedirs(f"result/{pname}",exist_ok=True)
     sh(f"cp {TMP}/fitresult/* result/{pname}","getresult",base_dir="..")
+    sh(f"cp {TMP}/b0_corrected_Tmean.nii.gz result/{pname}","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
 
