@@ -5,20 +5,19 @@ max_fail_time=5
 pn_tp_default,pn_eddy_default=40,16
 
 def show(s):
-    print(s)
-    print(s,file=sys.stderr)
+    print(s,flush=True)
+    print(s,file=sys.stderr,flush=True)
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
-    print(cmd)
-    ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True)
+    outputs.append(cmd)
+    ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True,stdout=subprocess.PIPE,encoding="utf")
     if ret.stdout is not None:
-        outputs.append(ret.stdout.decode("utf-8"))
+        outputs.append(ret.stdout)
     if ret.returncode!=0:
-        print(f"{pname}.{name}: {cmd.split()[0]} Failed!")
+        show(f"{pname}.{name}: {cmd.split()[0]} Failed!")
         raise Exception(f"{name} Error!")
-    print(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
-    
+    show(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
 
 # print(a)
 def getdirs(rt_dir="."):
