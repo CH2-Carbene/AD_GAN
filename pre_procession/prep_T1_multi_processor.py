@@ -3,9 +3,11 @@ import subprocess
 import os,shutil,sys
 max_fail_time=5
 pn_default=40
-def show(s):
+def show(s,output=None):
     print(s,flush=True)
     print(s,file=sys.stderr,flush=True)
+    if output is not None:
+        output.append(s)
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
@@ -14,9 +16,9 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     if ret.stdout is not None:
         outputs.append(ret.stdout)
     if ret.returncode!=0:
-        show(f"{pname}.{name}: {cmd.split()[0]} Failed!")
+        show(f"{pname}.{name}: {cmd.split()[0]} Failed!",outputs)
         raise Exception(f"{name} Error!")
-    show(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
+    show(f"{pname}.{name}: {cmd.split()[0]} Successfully!",outputs)
 
 def getdirs(rt_dir="."):
     pres={}
@@ -84,7 +86,7 @@ def make_one_T1(pname,pdict,outputs):
 
 def run_make_T1(pname,pdict):
     outputs=[]
-    show(f"{pname} process start...")
+    show(f"{pname} process start...",outputs)
     for i in range(max_fail_time):
         try:
             make_one_T1(pname,pdict,outputs)

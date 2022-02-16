@@ -4,9 +4,11 @@ import os,shutil,sys
 max_fail_time=5
 pn_tp_default,pn_eddy_default=40,16
 
-def show(s):
+def show(s,output=None):
     print(s,flush=True)
     print(s,file=sys.stderr,flush=True)
+    if output is not None:
+        output.append(s)
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
@@ -15,9 +17,9 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     if ret.stdout is not None:
         outputs.append(ret.stdout)
     if ret.returncode!=0:
-        show(f"{pname}.{name}: {cmd.split()[0]} Failed!")
+        show(f"{pname}.{name}: {cmd.split()[0]} Failed!",outputs)
         raise Exception(f"{name} Error!")
-    show(f"{pname}.{name}: {cmd.split()[0]} Successfully!")
+    show(f"{pname}.{name}: {cmd.split()[0]} Successfully!",outputs)
 
 # print(a)
 def getdirs(rt_dir="."):
@@ -184,7 +186,7 @@ def make_one_dti_eddy(pname,pdict,outputs):
     
 def run_make_topup(pname,pdict):
     outputs=[]
-    show(f"{pname} process start...")
+    show(f"{pname} process start...",outputs)
     for i in range(max_fail_time):
         try:
             make_one_dti_topup(pname,pdict,outputs)
@@ -200,7 +202,7 @@ def run_make_topup(pname,pdict):
 
 def run_make_eddy(pname,pdict):
     outputs=[]
-    show(f"{pname} process start...")
+    show(f"{pname} process start...",outputs)
     for i in range(max_fail_time):
         try:
             make_one_dti_eddy(pname,pdict,outputs)
