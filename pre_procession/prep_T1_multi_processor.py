@@ -10,9 +10,9 @@ def show(s):
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
     print(cmd)
-    ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True)
+    ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True,stdout=subprocess.PIPE,encoding="utf")
     if ret.stdout is not None:
-        outputs.append(ret.stdout.decode("utf-8"))
+        outputs.append(ret.stdout)
     if ret.returncode!=0:
         print(f"{pname}.{name}: {cmd.split()[0]} Failed!")
         raise Exception(f"{name} Error!")
@@ -79,7 +79,7 @@ def make_one_T1(pname,pdict,outputs):
     sh(f"bet t1_ACPC.nii.gz t1_ACPC_brain.nii.gz -f 0.50 -R -s",name="6_t1_bet")
 
     os.makedirs(f"result/{pname}",exist_ok=True)
-    sh(f"cp -t result/{pname} {TMP}/t1_ACPC.nii.gz {TMP}/t1_ACPC_brain.nii.gz {TMP}/t1_ACPC.mat","getresult",base_dir="..")
+    sh(f"cp -t result/{pname} {TMP}/t1_n4correct.nii.gz {TMP}/t1_ACPC.nii.gz {TMP}/t1_ACPC_brain.nii.gz {TMP}/t1_ACPC.mat","getresult",base_dir="..")
     sh(f"mv {TMP} checkpoints/{pname}","getresult",base_dir="..")
 
 def run_make_T1(pname,pdict):
