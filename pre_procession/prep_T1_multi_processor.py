@@ -3,11 +3,12 @@ import subprocess
 import os,shutil,sys
 max_fail_time=5
 pn_default=40
+
 def show(s,output=None):
     print(s,flush=True)
     print(s,file=sys.stderr,flush=True)
     if output is not None:
-        output.append(s)
+        output.append(s+'\n')
 
 def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     # tcmd=
