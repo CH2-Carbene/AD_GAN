@@ -15,7 +15,7 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     outputs.append(cmd)
     ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True,stdout=subprocess.PIPE,encoding="utf")
     if ret.stdout is not None:
-        outputs.append(ret.stdout)
+        outputs.append(ret.stdout+'\n')
     if ret.returncode!=0:
         show(f"{pname}.{name}: {cmd.split()[0]} Failed!",outputs)
         raise Exception(f"{name} Error!")
@@ -223,7 +223,7 @@ def run_make_eddy(pname,pdict):
 if __name__=="__main__":
 
     try:
-        pn_tp,pn_eddy=int(sys.argv[1],sys.argv[2])
+        pn_tp,pn_eddy=int(sys.argv[1]),int(sys.argv[2])
     except:
         pn_tp,pn_eddy=pn_tp_default,pn_eddy_default
     show(f"processor_num: {(pn_tp,pn_eddy)}")

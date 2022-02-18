@@ -15,7 +15,7 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
     outputs.append(cmd)
     ret=subprocess.run(f"cd {base_dir} && {cmd} 2>&1",shell=True,stdout=subprocess.PIPE,encoding="utf")
     if ret.stdout is not None:
-        outputs.append(ret.stdout)
+        outputs.append(ret.stdout+'\n')
     if ret.returncode!=0:
         show(f"{pname}.{name}: {cmd.split()[0]} Failed!",outputs)
         raise Exception(f"{name} Error!")
