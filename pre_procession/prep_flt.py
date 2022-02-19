@@ -44,7 +44,7 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
     # sh(f"flirt -in b0 -ref t1_ori -omat m1",name="flirt1")
     sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -dof 9",name="1_flirt_ACPC")
-    sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost corratio -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -dof 9",name="2_flirt_T1")
+    sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost normmi -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -dof 9",name="2_flirt_T1")
     sh(f"convert_xfm -concat b0_ACPC1.mat -omat b0_ACPC.mat b0_ACPC2.mat",name="3_xfm_concat")
     sh(f"flirt -in b0 -ref ~/template/MNI152_T1_0.8mm.nii.gz -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="4_apply_xfm_b0")
     sh(f"flirt -in dti_FA -ref ~/template/MNI152_T1_0.8mm.nii.gz -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_xfm_FA")
