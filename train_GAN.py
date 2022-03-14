@@ -56,7 +56,7 @@ print(f"Test len: {len(test)}")
 
 # %%
 # The facade training set consist of 400 images
-BUFFER_SIZE = 400
+BUFFER_SIZE = 16
 # The batch size of 1 produced better results for the U-Net in the original pix2pix experiment
 BATCH_SIZE = 4
 import GAN
