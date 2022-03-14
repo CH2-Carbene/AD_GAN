@@ -1,1 +1,2 @@
-from . import base
+from distutils.debug import DEBUG
+from . import base,globals

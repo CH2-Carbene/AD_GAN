@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from units.globals import DEBUG
 
 def visualize(X,title="",save_path=None):
     """
@@ -24,7 +25,9 @@ def visualize(X,title="",save_path=None):
     
     if save_path is not None:
         plt.savefig(save_path,dpi=100)
-    plt.show()
+    if DEBUG:
+        plt.show()
+    plt.close()
 
 
 def generate_images(model, test_input, tar,save_path=None,title=""):
