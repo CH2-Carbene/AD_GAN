@@ -29,7 +29,7 @@ def load_image_train(image_dir,direct="T1_to_FA"):
         input_img_name,real_img_name="FA.nii.gz","T1.nii.gz"
     input_image, real_image = load_pair(image_dir,input_img_name,real_img_name)
     input_image, real_image = random_jitter(input_image,real_image)
-    input_image, real_image = normalize(input_image), normalize(real_image)
+    input_image, real_image = np.tanh(input_image), np.tanh(real_image)
 
     return input_image.astype("float32"), real_image.astype("float32")
 
@@ -39,5 +39,5 @@ def load_image_test(image_dir,direct="T1_to_FA"):
         input_img_name,real_img_name="FA.nii.gz","T1.nii.gz"
     input_image, real_image = load_pair(image_dir,input_img_name,real_img_name)
     input_image, real_image = random_select(input_image, real_image)
-    input_image, real_image = normalize(input_image), normalize(real_image)
+    input_image, real_image = np.tanh(input_image), np.tanh(real_image)
     return input_image.astype("float32"), real_image.astype("float32")
