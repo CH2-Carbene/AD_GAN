@@ -117,7 +117,7 @@ def combine_aug(x, y, arg_list):
 default_argfunc_pool=[
         Flip3D(),
         Brightness(down=0.8,up=1.2),
-        Rotation3D(max_rate=np.pi/6),
+        Rotation3D(max_rate=np.pi/6),#考虑减小到5°，消融对比
         Elastic(sigma=2,order=[1,0]),
     ]
     
