@@ -1,7 +1,7 @@
 from random import random
 import nibabel as nib
 import numpy as np
-from prep import random_jitter,normalize, random_select
+from .prep import random_jitter,normalize, random_select
 
 def load_img(img_file):
     '''Load one imgs & normalization to float64 tensor'''

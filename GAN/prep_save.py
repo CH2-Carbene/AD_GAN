@@ -23,10 +23,11 @@ def load_prep_image(image_dir,direct="T1_to_FA"):
 def prep_data(data):
     ds=load_prep_image(f"{DATAPATH}/{data}")
     np.save(f"{NEWPATH}/{data}",np.array(ds))
+    print(f"{data} finish!")
 
 if __name__ == '__main__':
     data=[f"{imgdir}"for imgdir in os.listdir(DATAPATH)]
-    data=[data[0],data[1]]
+    # data=[data[0],data[1]]
     os.makedirs(NEWPATH,exist_ok=True)
 
     pn=40

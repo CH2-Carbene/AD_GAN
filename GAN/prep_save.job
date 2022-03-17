@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH -J prep_save
+#SBATCH -p bme_cpu
+#SBATCH --time=1200
+#SBATCH -N 1
+#SBATCH -n 40
+#SBATCH --mem 80g
+
+#SBATCH -o %j_stdout.log
+#SBATCH -e %j_stderr.log
+
+echo ${SLURM_JOB_NODELIST}
+echo start on $(date)
+
+cd /hpc/data/home/bme/v-gujch/work/AD_GAN/GAN
+python prep_save.py
+
+echo end on $(date)
