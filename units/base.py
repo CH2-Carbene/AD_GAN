@@ -1,6 +1,12 @@
 import numpy as np
+import matplotlib as mpl
+mpl.use("Agg")
 import matplotlib.pyplot as plt
+
 from units.globals import DEBUG
+
+def show(x):
+    print(x,flush=True)
 
 def visualize(X,title="",save_path=None):
     """
