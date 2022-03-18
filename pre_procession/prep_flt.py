@@ -43,8 +43,8 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
     sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
     # sh(f"flirt -in b0 -ref t1_ori -omat m1",name="flirt1")
-    sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -dof 9",name="1_flirt_ACPC")
-    sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost normmi -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -dof 9",name="2_flirt_T1")
+    sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="1_flirt_ACPC")
+    sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="2_flirt_T1")
     sh(f"convert_xfm -concat b0_ACPC1.mat -omat b0_ACPC.mat b0_ACPC2.mat",name="3_xfm_concat")
     sh(f"flirt -in b0 -ref ~/template/MNI152_T1_0.8mm.nii.gz -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="4_apply_xfm_b0")
     sh(f"flirt -in dti_FA -ref ~/template/MNI152_T1_0.8mm.nii.gz -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_xfm_FA")
@@ -90,6 +90,7 @@ def run_make_flt(pname,pdict,pi):
 def get_ptdict():
     ptdict={}
     for desti in os.listdir("t1"):
+        if not os.path.isdir(f"t1/{desti}"):continue
         for pati in os.listdir(f"t1/{desti}"):
             if os.path.isdir(f"t1/{desti}/{pati}") and pati!="result" and pati!="checkpoints":
                 pid=f"{desti}/{pati}"
@@ -101,6 +102,7 @@ def get_ptdict():
                     ptdict[pid]["t1"]=t1dir
     
     for desti in os.listdir("dti"):
+        if not os.path.isdir(f"dti/{desti}"):continue
         for pati in os.listdir(f"dti/{desti}"):
             if os.path.isdir(f"dti/{desti}/{pati}") and pati!="result" and pati!="checkpoints":
                 pid=f"{desti}/{pati}"
@@ -138,9 +140,11 @@ if __name__=='__main__':
         dtidir=ptdir.get("dti")
         if t1dir is None:
             show(f"{pid} have no T1")
+            not1.append(pid)
             continue
         if dtidir is None:
             show(f"{pid} have no dti")
+            nodti.append(pid)
             continue
         mulpool_flt.apply_async(run_make_flt,args=(pid,ptdir,i,),error_callback=lambda e:fail_set.add(e.args[0]))
     mulpool_flt.close()
