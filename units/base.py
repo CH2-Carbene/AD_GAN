@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib as mpl
-mpl.use("Agg")
+from units.globals import DEBUG
+if not DEBUG: mpl.use("Agg")
 import matplotlib.pyplot as plt
 
-from units.globals import DEBUG
+
 
 def show(x):
     print(x,flush=True)
@@ -37,7 +38,7 @@ def visualize(X,title="",save_path=None):
 
 
 def generate_images(model, test_input, tar,save_path=None,title=""):
-    prediction = model(test_input, training=True)
+    prediction = model(test_input, training=False)
     # plt.figure(figsize=(15, 15))
     # print(test_input[0].shape, tar[0].shape, prediction[0].shape)
     display_list = [test_input[0], tar[0], prediction[0][:,:,:,0]]

@@ -65,7 +65,7 @@ def Generator():
 
     
     # classifier
-    last = Conv3DTranspose(1, kernel_size=ks, strides=2, padding='same', kernel_initializer=K_INITER,  activation="tanh",name='output_generator')(x)
+    last = Conv3DTranspose(1, kernel_size=ks, strides=2, padding='same', kernel_initializer=K_INITER,  name='output_generator')(x)
     
     return Model(inputs=inputs, outputs=last, name='Generator')
 

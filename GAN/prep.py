@@ -97,9 +97,16 @@ def resize(img,tg_shape)->np.ndarray:
     tgsize=np.array(tg_shape)
     return scipy.ndimage.zoom(img,tgsize/orisize,order=1)
 
-def normalize(img)->np.ndarray:
+def normalize(img:np.ndarray,save_rate=0.99)->np.ndarray:
     brain= img[img!=0]
-    brain_norm=(brain-np.mean(brain))/np.std(brain)
+    n=len(brain)
+    maxp,minp=round(n*((1+save_rate)/2)),round(n*((1-save_rate)/2))
+    
+    maxn,minn=np.partition(brain,kth=maxp)[maxp],np.partition(brain,kth=minp)[minp]
+    brain[brain>maxn]=maxn
+    # brain[brain<minn]=minn
+    brain_norm=(brain)/maxn
+    
     img_norm=np.zeros_like(img)
     img_norm[img!=0]=brain_norm
     return img_norm

@@ -1,5 +1,4 @@
 # %%
-print('begin')
 import tensorflow as tf
 # print('import tf', tf.__version__)
 
@@ -32,9 +31,7 @@ from sklearn.model_selection import train_test_split
 
 if __name__ == '__main__':
     show("Start processing...")
-    t1,fa=load_pair(r"./datasets/brainmap/paired/9")
-    # t1[fa==0]=0
-    visualize([t1,fa],save_path="demo/paired.png")
+
     # visualize(fa)
     # %%
     ### visualize argument
@@ -42,27 +39,35 @@ if __name__ == '__main__':
     
 
     # for i in range(1):
-    t1_arg,fa_arg=t1,fa#Patch_extration()(t1,fa)
-    t1_arg,fa_arg=random_jitter(t1_arg,fa_arg)#,[Rotation3D(max_rate=np.pi/2)])
-    visualize([t1_arg,fa_arg],save_path="demo/paired_arg.png")
+    # t1_arg,fa_arg=t1,fa#Patch_extration()(t1,fa)
+    # t1_arg,fa_arg=random_jitter(t1_arg,fa_arg)#,[Rotation3D(max_rate=np.pi/2)])
+    # visualize([t1_arg,fa_arg],save_path="demo/paired_arg.png")
     # visualize(fa_arg)
-    np.save("demo/t1_arg",t1_arg)
-    np.save("demo/fa_arg",fa_arg)
+    # np.save("demo/t1_arg",t1_arg)
+    # np.save("demo/fa_arg",fa_arg)
 
     # %%
     ### train_test_split
     # DEBUG=True
-    DATAPATH = "./datasets/brainmap/paired"
-    data=[f"{DATAPATH}/{imgdir}"for imgdir in os.listdir(DATAPATH)]
+    # DATAPATH = "./datasets/brainmap/paired"
+    # data=[f"{DATAPATH}/{imgdir}"for imgdir in os.listdir(DATAPATH)]
+    NEWPATH="datasets/brainmap/npdata"
+    data=[f"{NEWPATH}/{img}"for img in os.listdir(NEWPATH)]
+    demo=np.load(data[0])
+    t1,fa=demo[0],demo[1]
+    # t1[fa==0]=0
+    visualize([t1,fa],save_path="demo/paired.png")
     # if DEBUG:data=data[:10]
     # show(data)
-    
+    # if DEBUG:
     train_val,test=train_test_split(
         data,test_size=0.1,random_state=1919810
     )
     train,val=train_test_split(
         train_val,test_size=0.1,random_state=114514
     )
+    # else:
+    # train,val,test=data,data,data
     # train
     show(f"Train len: {len(train)}")
     show(f"Val len: {len(val)}")
@@ -70,21 +75,35 @@ if __name__ == '__main__':
 
     # %%
     # The facade training set consist of 400 images
-    BUFFER_SIZE = 16
+    BUFFER_SIZE = 400
     # The batch size of 1 produced better results for the U-Net in the original pix2pix experiment
     BATCH_SIZE = 4
-    
+    st_range=np.array((227, 272, 227))-np.array((128,128,128))
+    def load_np_data(filename):
+        if type(filename)!=str:
+            filename=filename.decode()
+        data=np.load(filename,mmap_mode="r")
+            # tf.random.
+        st=np.random.randint(st_range)
+        ed=st+128
+        x,y=data[0,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]],data[1,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        return tf.convert_to_tensor(x),tf.convert_to_tensor(y)
+            
+    warp_load_np=lambda x:tf.numpy_function(func=load_np_data,inp=[x],Tout=(tf.float32,tf.float32))
+
     def get_train_ds(train):
         # train_dataset=[]
         # for t in tqdm(train):
             # train_dataset.append(load_image_train(t))
         # train_dataset=np.array(train_dataset)
         # train_dataset = list(map(load_image_train,train))
+        
         train_dataset = tf.data.Dataset.from_tensor_slices(train)
+        # print(train_dataset)
         # train_dataset=load_image_train(train)
-        train_dataset = train_dataset.map(lambda x:tf.numpy_function(func=load_image_train,inp=[x],Tout=(tf.float32,tf.float32)),num_parallel_calls=16,deterministic=False)
+        train_dataset = train_dataset.map(map_func=warp_load_np,num_parallel_calls=8)
         train_dataset = train_dataset.shuffle(BUFFER_SIZE,seed=114514)
-        train_dataset = train_dataset.batch(BATCH_SIZE)
+        train_dataset = train_dataset.batch(BATCH_SIZE,num_parallel_calls=8)
         return train_dataset
     # train_dataset=train_dataset.map(lambda x:tf.numpy_function(func=upper_case_fn,inp=[x],Tout=(tf.float64,tf.float64)))
 
@@ -96,9 +115,10 @@ if __name__ == '__main__':
         #     iplist.append(input)
         #     relist.append(real)
         test_dataset = tf.data.Dataset.from_tensor_slices(test)
-        test_dataset = test_dataset.map(lambda x:tf.numpy_function(func=load_image_test,inp=[x],Tout=(tf.float32,tf.float32)),num_parallel_calls=16,deterministic=False)
+        test_dataset = test_dataset.map(map_func=warp_load_np,num_parallel_calls=8)
+        # test_dataset = test_dataset.map(lambda x:tf.numpy_function(func=load_image_test,inp=[x],Tout=(tf.float32,tf.float32)),num_parallel_calls=16,deterministic=False)
         # test_dataset = test_dataset.map(lambda x:tf.numpy_function(func=load_image_test,inp=[x],Tout=(tf.float32,tf.float32)),num_parallel_calls=tf.data.AUTOTUNE,deterministic=False)
-        test_dataset = test_dataset.batch(BATCH_SIZE)
+        test_dataset = test_dataset.batch(BATCH_SIZE,num_parallel_calls=8)
         return test_dataset
 
     train_ds,val_ds,test_ds=get_train_ds(train),get_test_ds(val),get_test_ds(test)
@@ -190,7 +210,7 @@ if __name__ == '__main__':
         for step, (input_image, target) in train_ds.repeat().take(steps).enumerate():
 
             start = time.time()
-            show('Epoch {}/{}'.format(step+1,steps))
+            show(f'Epoch {step+1}/{steps}')
 
             # if (step+1) % 1 == 0:
                 # display.clear_output(wait=True)
@@ -203,11 +223,10 @@ if __name__ == '__main__':
             show(f'\rStep: {step+1}/{steps} - loss: {gen_loss:.6f} - dice_loss: {dice_loss:.6f} - gan_disc_loss: {gan_disc_loss:.6f} - disc_loss: {disc_loss:.6f}')
             
             show(f'Time taken for 1 steps: {time.time()-start:.2f} sec\n')
-            stdout.flush()
             
             if (step+1) % val_time==0:
                 
-                for step, (input_image, target) in test_ds.enumerate():
+                for val_step, (input_image, target) in test_ds.enumerate():
                     test_step_loss=test_step(input_image, target)
                     for meti,li in zip(test_losses,test_step_loss):meti.update_state(li)
                 
@@ -219,12 +238,12 @@ if __name__ == '__main__':
                 os.makedirs(save_path,exist_ok=True)
                 
                 generate_images(G,example_input, example_target,save_path=f"{save_path}/show.png")
-                G.save_weights(f"{save_path}/G.h5") 
-                D.save_weights(f"{save_path}/D.h5") 
+                G.save(f"{save_path}/G.h5") 
+                D.save(f"{save_path}/D.h5") 
 
                 if gen_loss_val < prev_loss:    
-                    G.save_weights(f"{path}/Generator.h5") 
-                    D.save_weights(f"{path}/Generator.h5") 
+                    G.save(f"{path}/Generator.h5") 
+                    D.save(f"{path}/Discriminator.h5") 
                     show(f"Validation loss decresaed from {prev_loss:.4f} to {gen_loss_val:.4f}. Models' weights are now saved.")
                     prev_loss=gen_loss_val
                 else:
@@ -239,5 +258,4 @@ if __name__ == '__main__':
 
     # %%
     h=fit(train_ds,val_ds,steps=10*len(train_ds))
-
     show(h)
