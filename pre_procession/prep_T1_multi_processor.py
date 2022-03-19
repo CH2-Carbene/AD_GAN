@@ -31,7 +31,7 @@ def getdirs(rt_dir="."):
         pdict={}
         for f in slist:
             parts=f.split("_")
-            if "t1" in parts: pdict["t1"]={"dir":f}
+            if "t1" in parts and "0.8mm" in parts: pdict["t1"]={"dir":f}
             elif "dMRI" in parts:
                 if "b0" in parts:
                     td={"dir":f}
