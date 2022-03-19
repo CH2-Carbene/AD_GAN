@@ -42,12 +42,20 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"cp -t {TMP} {T1DIR}/* {DTIDIR}/*",name="0_getfile",base_dir=".")
     sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
     sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
+    
+    sh(f"bet b0.nii.gz b0_brain.nii.gz -f 0.3 -g 0 -m",name="1_bet_b0")
+
+    sh(f"flirt -in b0_brain -ref t1_ACPC_brain -out b0_ACPC_brain -omat b0_ACPC.mat -bins 256 -cost mutualinfo -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="2_flirt_T1")
+    sh(f"flirt -in dti_FA -ref t1_ACPC_brain -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="2_apply_xfm_FA")
+
+    sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
+
     # sh(f"flirt -in b0 -ref t1_ori -omat m1",name="flirt1")
-    sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="1_flirt_ACPC")
-    sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="2_flirt_T1")
-    sh(f"convert_xfm -concat b0_ACPC1.mat -omat b0_ACPC.mat b0_ACPC2.mat",name="3_xfm_concat")
-    sh(f"flirt -in b0 -ref ~/template/MNI152_T1_0.8mm.nii.gz -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="4_apply_xfm_b0")
-    sh(f"flirt -in dti_FA -ref ~/template/MNI152_T1_0.8mm.nii.gz -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_xfm_FA")
+    # sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="1_flirt_ACPC")
+    # sh(f"flirt -in b0 -ref t1_ori -omat b0_ACPC2.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="2_flirt_T1")
+    # sh(f"convert_xfm -concat b0_ACPC1.mat -omat b0_ACPC.mat b0_ACPC2.mat",name="3_xfm_concat")
+    # sh(f"flirt -in b0 -ref ~/template/MNI152_T1_0.8mm.nii.gz -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="4_apply_xfm_b0")
+
     if os.path.exists(OUT):
         shutil.rmtree(OUT)
     os.makedirs(OUT)

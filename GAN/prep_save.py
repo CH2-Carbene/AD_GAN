@@ -19,9 +19,12 @@ def load_prep_image(image_dir,direct="T1_to_FA"):
     return input_image.astype("float32"), real_image.astype("float32")
 
 def prep_data(data):
-    ds=load_prep_image(f"{DATAPATH}/{data}")
-    np.save(f"{NEWPATH}/{data}",np.array(ds))
-    print(f"{data} finish!")
+    try:
+        ds=load_prep_image(f"{DATAPATH}/{data}")
+        np.save(f"{NEWPATH}/{data}",np.array(ds))
+        print(f"{data} finish!")
+    except Exception as e:
+        raise Exception(f"{data} Failed: {e}\n")
 
 if __name__ == '__main__':
     data=[f"{imgdir}"for imgdir in os.listdir(DATAPATH)]
@@ -30,10 +33,10 @@ if __name__ == '__main__':
 
     pn=10
     mulpool_flt = multiprocessing.Pool(processes=pn)
-    fail_set=set()
+    fail_set=[]
     for fname in data:
         # prep_data(fname)
-        mulpool_flt.apply_async(prep_data,args=(fname,),error_callback=lambda e:fail_set.add(e))
+        mulpool_flt.apply_async(prep_data,args=(fname,),error_callback=lambda e:fail_set.append(e))
     mulpool_flt.close()
     mulpool_flt.join()
 
