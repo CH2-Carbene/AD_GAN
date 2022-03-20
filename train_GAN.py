@@ -2,7 +2,7 @@
 import tensorflow as tf
 # print('import tf', tf.__version__)
 
-import os
+import os,pickle
 import time
 import datetime
 from imp import reload
@@ -196,7 +196,8 @@ if __name__ == '__main__':
         return gen_loss, dice_loss, gan_disc_loss, disc_loss
 
     # %%
-    val_time=100
+    val_time=len(train_ds)//BATCH_SIZE*5
+    tot_step=len(train_ds)*500
 
     def fit(train_ds, test_ds, steps):
         example_input, example_target = next(iter(test_ds.take(1)))
@@ -234,7 +235,7 @@ if __name__ == '__main__':
                 show(f'\rVal_step: {(step+1)//val_time}/{steps//val_time} - val_loss: {gen_loss_val:.6f} - val_dice_loss: {dice_loss_val:.6f} - val_gan_disc_loss: {gan_disc_loss_val:.6f} - val_disc_loss: {disc_loss_val:.6f}')
 
 
-                save_path=f"{path}/step_{step:03d}"
+                save_path=f"{path}/step_{step+1:03d}"
                 os.makedirs(save_path,exist_ok=True)
                 
                 generate_images(G,example_input, example_target,save_path=f"{save_path}/show.png")
@@ -249,13 +250,14 @@ if __name__ == '__main__':
                 else:
                     show(f"Validation loss did not decrese from {prev_loss:.4f} to {gen_loss_val:.4f}.")
 
-                history['train'].append([x.result() for x in train_losses])
-                history['valid'].append([x.result() for x in test_losses])
+                history['train'].append([x.result().numpy() for x in train_losses])
+                history['valid'].append([x.result().numpy() for x in test_losses])
                 for x in train_losses:x.reset_states()
                 for x in test_losses:x.reset_states()
                 checkpoint.save(file_prefix=checkpoint_prefix)
         return history
 
     # %%
-    h=fit(train_ds,val_ds,steps=10*len(train_ds))
+    h=fit(train_ds,val_ds,steps=tot_step)
     show(h)
+    h_bytes=pickle.dumps(h)
