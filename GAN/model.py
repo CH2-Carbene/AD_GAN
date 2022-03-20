@@ -103,7 +103,7 @@ def Discriminator():
     x = LeakyReLU()(x)
       
     x = ZeroPadding3D()(x)
-    last = Conv3D(1, ks, strides=1, padding='valid', kernel_initializer=K_INITER, name='output_discriminator')(x) 
+    last = Conv3D(1, ks, strides=1, padding='valid', kernel_initializer=K_INITER, activation="tanh",name='output_discriminator')(x) 
 
     return Model(inputs=[targets, inputs], outputs=last, name='Discriminator')
 
