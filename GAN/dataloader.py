@@ -18,8 +18,10 @@ def load_pair(img_file_dir,input_img_name="T1.nii.gz",real_img_name="FA.nii.gz")
     input_img_fullname=f"{img_file_dir}/{input_img_name}"
     real_img_fullname=f"{img_file_dir}/{real_img_name}"
     input_img,real_img=load_img(input_img_fullname),load_img(real_img_fullname)
-    if input_img_name=="T1.nii.gz":input_img[real_img==0]=0
-    else:real_img[input_img==0]=0
+    input_img[real_img==0]=0
+    real_img[input_img==0]=0
+    # if input_img_name=="T1.nii.gz":input_img[real_img==0]=0
+    # else:real_img[input_img==0]=0
     input_img, real_img=normalize(input_img), normalize(real_img)
     return input_img,real_img
 
