@@ -77,7 +77,8 @@ def load_np_data(filename):
     st=np.random.randint(st_range)
     ed=st+128
     x,y=data[0,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]],data[1,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
-    return tf.convert_to_tensor(x),tf.convert_to_tensor(y)
+    mask=(x!=0)&(y!=0)
+    return tf.convert_to_tensor(x*mask),tf.convert_to_tensor(y*mask)
         
 warp_load_np=lambda x:tf.numpy_function(func=load_np_data,inp=[x],Tout=(tf.float32,tf.float32))
 
@@ -143,15 +144,17 @@ generator = Generator()
 discriminator=Discriminator()
 from GAN.loss import get_gen_loss,get_disc_loss
 # reload(GAN.loss)
-
+ALPHA=50
+val_time=len(train_ds)//BATCH_SIZE*5
+tot_step=len(train_ds)*200
 
 # %%
 log_dir="logs/"
-this_log_dir=log_dir + "GAN_fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+this_log_dir=log_dir + "GAN_fit/" + f"ALPHA{ALPHA}_Step{tot_step}_" +datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 summary_writer = tf.summary.create_file_writer(this_log_dir)
 path=f"{this_log_dir}/T1_FA"
 checkpoint_dir = f"{this_log_dir}/training_checkpoints"
-checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+checkpoint_prefix = checkpoint_dir+"/ckpt"
 checkpoint = tf.train.Checkpoint(generator_optimizer=gen_oper,
                                  discriminator_optimizer=disc_oper,
                                  generator=generator,
@@ -159,7 +162,6 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=gen_oper,
 
 
 # %%
-ALPHA=5
 G,D=generator,discriminator
 @tf.function
 def train_step(img, tar, step):
@@ -205,8 +207,6 @@ def test_step(img, tar):
     return gen_loss, dice_loss, gan_disc_loss, disc_loss
 
 # %%
-val_time=len(train_ds)//BATCH_SIZE*5
-tot_step=len(train_ds)*500
 
 def fit(train_ds, test_ds, steps):
     example_input, example_target = next(iter(test_ds.take(1)))
@@ -272,8 +272,11 @@ h=fit(train_ds,val_ds,steps=tot_step)
 with open(f"{this_log_dir}/training_log.pic","wb") as f:
     pickle.dump(h,f)
 
-# %%
-with open(f"{this_log_dir}/training_log.pic","rb") as f:
-    t=pickle.load(f)
 
-print(t)
+# %%
+from units.base import show_process
+show_process(h["train"],f"{this_log_dir}/train_process")
+show_process(h["valid"],f"{this_log_dir}/valid_process")
+
+# %% [markdown]
+# ### END

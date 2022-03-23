@@ -4,10 +4,21 @@ from units.globals import DEBUG
 if not DEBUG: mpl.use("Agg")
 import matplotlib.pyplot as plt
 
-
-
 def show(x):
     print(x,flush=True)
+
+def show_process(pic_data,save_path=None):
+    plt.figure(figsize=(15,10))
+    x=range(0,len(pic_data)*200,200)
+    # plt.yscale('log')
+    plt.xlabel("Step")
+    plt.plot(x,pic_data,label=["Tot loss","L2 loss","Gen loss","Disc loss"])
+    plt.legend()
+    if save_path is not None:
+        plt.savefig(save_path,dpi=100)
+    if DEBUG:
+        plt.show()
+    plt.close()
 
 def visualize(X,title="",save_path=None):
     """
