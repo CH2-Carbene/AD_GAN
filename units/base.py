@@ -3,6 +3,10 @@ import matplotlib as mpl
 from units.globals import DEBUG
 if not DEBUG: mpl.use("Agg")
 import matplotlib.pyplot as plt
+from functools import reduce
+
+def fn_pipe(func_list):
+    return lambda x: reduce(lambda inp,f:f(*inp),func_list,x)
 
 def show(x):
     print(x,flush=True)

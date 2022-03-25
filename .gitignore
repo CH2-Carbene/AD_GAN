@@ -2,3 +2,7 @@ datasets
 try
 logs
 __pycache__
+*.h5
+*.npy
+*.pyc
+GAN2_tot
