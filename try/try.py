@@ -25,8 +25,8 @@ with open("use_list.txt") as f:
         # os.makedirs(ps, exist_ok=True)
         
             # shutil.copy(s, ps)
-        if not os.path.exists(os.path.join(ps,ds)):
-            print("Not exist: ",ds)
+        if not os.path.exists(s):#os.path.join(ps,ds)):
+            print("Not exist: ",s)
         #     if os.path.exists(svec):
         #         shutil.copy(svec, ps)
         # except IOError as e:
