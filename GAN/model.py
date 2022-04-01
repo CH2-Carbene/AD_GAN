@@ -65,8 +65,8 @@ def Generator():
 
     
     # classifier
-    last = Conv3DTranspose(1, kernel_size=ks, strides=2, padding='same', kernel_initializer=K_INITER,  name='output_generator')(x)
-    
+    last = Conv3DTranspose(1, kernel_size=ks, strides=2, padding='same', kernel_initializer=K_INITER, name='output_generator')(x)
+    last_norm=ReLU()(last/2+1)-1
     return Model(inputs=inputs, outputs=last, name='Generator')
 
 def Discriminator():
@@ -103,7 +103,7 @@ def Discriminator():
     x = LeakyReLU()(x)
       
     x = ZeroPadding3D()(x)
-    last = Conv3D(1, ks, strides=1, padding='valid', kernel_initializer=K_INITER, activation="tanh",name='output_discriminator')(x) 
+    last = Conv3D(1, ks, strides=1, padding='valid', kernel_initializer=K_INITER, name='output_discriminator')(x)
 
     return Model(inputs=[targets, inputs], outputs=last, name='Discriminator')
 
@@ -113,3 +113,9 @@ def ensembler():
     fin = Conv3D(4, kernel_size=3, kernel_initializer=K_INITER, padding='same', activation='softmax')(start)
 
     return Model(inputs=start, outputs=fin, name='Ensembler')
+
+
+if __name__ == '__main__':
+    G,D=Generator(),Discriminator()
+    G.summary(line_length=120)
+    D.summary(line_length=120)

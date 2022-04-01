@@ -1,5 +1,8 @@
 import tensorflow as tf
 import numpy as np
+
+loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
 def diceLoss(y_true, y_pred):
     
     y_true = tf.convert_to_tensor(y_true, 'float32')
@@ -25,8 +28,11 @@ def get_L1loss(y_true, y_pred):
     return tf.math.reduce_mean(tf.math.abs(y_true - y_pred))
 
 def get_disc_loss(disc_real_output, disc_fake_output):
-    real_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_real_output) - disc_real_output, 2))
-    fake_loss = tf.math.reduce_mean(tf.math.pow(tf.zeros_like(disc_fake_output) - disc_fake_output, 2))
+    # real_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_real_output) - disc_real_output, 2))
+    real_loss = loss_object(tf.ones_like(disc_real_output), disc_real_output)
+
+    # fake_loss = tf.math.reduce_mean(tf.math.pow(tf.zeros_like(disc_fake_output) - disc_fake_output, 2))
+    fake_loss = loss_object(tf.zeros_like(disc_fake_output), disc_fake_output)
 
     disc_loss = 0.5*(real_loss + fake_loss)
 
