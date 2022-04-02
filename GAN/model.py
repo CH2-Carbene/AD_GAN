@@ -76,11 +76,11 @@ def Discriminator():
 
     inputs = Input((128,128,128,1), name='input_image')
     targets = Input((128,128,128,1), name='target_image')
-    Nfilter_start = 32
+    Nfilter_start = 16
     depth = 3
-    ks = 4
+    default_ks = 3
 
-    def encoder_step(layer, Nf, norm=True):
+    def encoder_step(layer, Nf, ks=default_ks, norm=True):
         x = Conv3D(Nf, kernel_size=ks, strides=2, kernel_initializer=K_INITER, padding='same')(layer)
         if norm:
             x = InstanceNormalization()(x)
@@ -98,12 +98,12 @@ def Discriminator():
             x = encoder_step(x, Nfilter_start*np.power(2,d))
 
     x = ZeroPadding3D()(x)
-    x = Conv3D(Nfilter_start*(2**depth), ks, strides=1, padding='valid', kernel_initializer=K_INITER)(x) 
+    x = Conv3D(Nfilter_start*(2**depth), default_ks, strides=1, padding='valid', kernel_initializer=K_INITER)(x) 
     x = InstanceNormalization()(x)
     x = LeakyReLU()(x)
       
     x = ZeroPadding3D()(x)
-    last = Conv3D(1, ks, strides=1, padding='valid', kernel_initializer=K_INITER, name='output_discriminator')(x)
+    last = Conv3D(1, default_ks, strides=1, padding='valid', kernel_initializer=K_INITER, name='output_discriminator')(x)
 
     return Model(inputs=[targets, inputs], outputs=last, name='Discriminator')
 

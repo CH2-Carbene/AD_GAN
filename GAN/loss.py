@@ -28,11 +28,11 @@ def get_L1loss(y_true, y_pred):
     return tf.math.reduce_mean(tf.math.abs(y_true - y_pred))
 
 def get_disc_loss(disc_real_output, disc_fake_output):
-    # real_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_real_output) - disc_real_output, 2))
-    real_loss = loss_object(tf.ones_like(disc_real_output), disc_real_output)
+    real_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_real_output) - disc_real_output, 2))
+    # real_loss = loss_object(tf.ones_like(disc_real_output), disc_real_output)
 
-    # fake_loss = tf.math.reduce_mean(tf.math.pow(tf.zeros_like(disc_fake_output) - disc_fake_output, 2))
-    fake_loss = loss_object(tf.zeros_like(disc_fake_output), disc_fake_output)
+    fake_loss = tf.math.reduce_mean(tf.math.pow(tf.zeros_like(disc_fake_output) - disc_fake_output, 2))
+    # fake_loss = loss_object(tf.zeros_like(disc_fake_output), disc_fake_output)
 
     disc_loss = 0.5*(real_loss + fake_loss)
 
@@ -45,8 +45,9 @@ def get_gen_loss(target, gen_output, disc_fake_output, alpha):
     # dice_loss = diceLoss(target, gen_output)
     L1_loss=get_L1loss(target,gen_output )#tf.math.reduce_mean(tf.math.pow(gen_output - target, 2))
     # disc loss
-    disc_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_fake_output) - disc_fake_output, 2))
-
+    # disc_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_fake_output) - disc_fake_output, 2))
+    # disc_loss = tf.math.reduce_mean(tf.math.pow(tf.ones_like(disc_fake_output) - disc_fake_output, 2))
+    disc_loss = loss_object(tf.ones_like(disc_fake_output), disc_fake_output)
     # total loss
     gen_loss = alpha*L1_loss + disc_loss
 
