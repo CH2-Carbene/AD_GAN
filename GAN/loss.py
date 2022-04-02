@@ -34,7 +34,7 @@ def get_disc_loss(disc_real_output, disc_fake_output):
     # fake_loss = tf.math.reduce_mean(tf.math.pow(tf.zeros_like(disc_fake_output) - disc_fake_output, 2))
     fake_loss = loss_object(tf.zeros_like(disc_fake_output), disc_fake_output)
 
-    disc_loss = 0.5*(real_loss + fake_loss)
+    disc_loss = real_loss + fake_loss
 
     return disc_loss
 
