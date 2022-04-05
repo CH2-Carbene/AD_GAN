@@ -1,0 +1,277 @@
+import time,datetime,os,pickle
+import numpy as np
+import tensorflow as tf
+from units.base import show,cyc_generate_images
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import MeanSquaredError
+from .losses import L1_loss, L2_loss
+from .layers import G_conv3d, G_deconv3d, Reslayer
+K_INITER = "he_normal"
+
+
+def Generator():
+
+    layers_to_concatenate = []
+    inputs = Input((128, 128, 128, 1), name='input_image')
+    nf_start = 8
+    depth, resnum = 3, 3
+    ks0 = 7
+    ks = 3
+    x = inputs
+
+    # encoder
+    for d in range(depth):
+        if d == 0:
+            x = G_conv3d(nf_start, ks=ks0, st=1, pad="reflect")(x)
+        else:
+            x = G_conv3d(nf_start*np.power(2, d), ks=ks, st=2, pad="same")(x)
+        layers_to_concatenate.append(x)
+
+    # bottlenek
+    for i in range(resnum):
+        x = Reslayer(nf_start*np.power(2, depth-1), ks)(x)
+
+    # decoder
+    for d in range(depth-1, -1, -1):
+        if d != 0:
+            x = G_deconv3d(nf_start*np.power(2, d-1),
+                           ks=ks, st=2, pad="same")(x)
+        else:
+            x = G_conv3d(1, ks=ks0, st=1, pad="reflect")(x)
+    outputs = ReLU()(x/2+1)-1
+    return Model(inputs=inputs, outputs=outputs, name='Generator')
+
+
+def Discriminator():
+    inputs = Input((128, 128, 128, 1), name='input_image')
+    ks = 4
+    depth = 3
+    nf_start = 16
+
+    x = inputs
+    for d in range(depth):
+        if d == 0:
+            x = G_conv3d(nf_start, ks=ks, st=2, pad="same",
+                         norm=False, lrelu=0.2)(x)
+        else:
+            x = G_conv3d(nf_start*np.power(2, d), ks=ks,
+                         st=2, pad="same",  lrelu=0.2)(x)
+
+    x = G_conv3d(nf_start*np.power(2, depth), ks=ks,
+                 st=1, pad="same", lrelu=0.2)(x)
+    outputs = G_conv3d(1, ks=ks, st=2, pad="same",
+                       norm=False, do_relu=False)(x)
+    return Model(inputs=inputs, outputs=outputs, name='Discriminator')
+
+# def add(f1,f2):
+    # return lambda x:f1(*x)+f2(*x)
+
+
+def showState(d:dict):
+    for x,y in dict.items():
+        show(f"{x} : {y:6f}")
+    show("")
+
+class Cycgan_pet:
+    def __init__(self):
+        """
+        Cycgan with paired data. Disc for True and fake image, and L1 loss for cycle consistency.
+        """
+
+        self.lamda = 10
+        self.calc_cyc_loss = lambda inp, cyc: L1_loss(inp, cyc)
+        self.calc_gan_dis_loss = lambda dis_out: L1_loss(dis_out, 1)
+        self.calc_gan_loss = lambda cyc_loss, dis_out: self.lamda * \
+            cyc_loss+self.calc_gan_dis_loss(dis_out)
+
+        self.calc_dis_loss = lambda fak, tru: (
+            L2_loss(fak, 0) + L2_loss(tru, 1)) / 2
+
+        # curr_lr = 0.0002*(200-max(epoch, 100))/100
+        
+        self.G1, self.G2 = Generator(), Generator()
+        self.DA, self.DB = Discriminator(), Discriminator()
+        
+        self.G1_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+        self.G2_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+        self.DA_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+        self.DB_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+
+
+        self.applyop=lambda tape,op,model,loss:op.apply_gradients(zip(tape.gradient(loss,model.trainable_variables),model.trainable_variables))
+
+        self.log_dir="logs/"
+        self.this_log_dir=self.log_dir + f"lamda{self.lamda}"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.path=f"{self.this_log_dir}/Pet_cyc"
+        self.prev_loss=np.inf
+        self.example=None
+
+    def save_checkpoint(self,step,now_loss):
+        G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB
+        path,prev_loss=self.path,self.prev_loss
+        save_path = f"{path}/step_{step+1:03d}"
+        
+        os.makedirs(save_path, exist_ok=True)
+
+        if self.example is not None:
+            cyc_generate_images(G1,G2, self.example[0], self.example[1],
+                        save_path=f"{save_path}/show.png")
+        G1.save(f"{save_path}/G1.h5")
+        G2.save(f"{save_path}/G2.h5")
+        DA.save(f"{save_path}/DA.h5")
+        DB.save(f"{save_path}/DB.h5")
+
+        if now_loss < prev_loss:
+            G1.save(f"{path}/G1.h5")
+            G2.save(f"{path}/G2.h5")
+            DA.save(f"{path}/DA.h5")
+            DB.save(f"{path}/DB.h5")
+            show(f"Validation loss decresaed from {prev_loss:.4f} to {now_loss:.4f}. Models' weights are now saved.")
+            prev_loss = now_loss
+        else:
+            show(f"Validation loss did not decrese from {prev_loss:.4f} to {now_loss:.4f}.")
+
+
+    def test(self, test_ds):
+        test_losses = [tf.keras.metrics.Mean() for i in range(7)]
+        for val_step, (imgA, imgB) in test_ds.enumerate():
+            test_step_loss = self.test_step(imgA, imgB)
+            for meti, li in zip(test_losses, test_step_loss):
+                meti.update_state(li)
+        return [x.result() for x in test_losses]
+
+
+    def test_step(self,imgA, imgB):
+        G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB
+
+        calc_gan_loss = self.calc_gan_loss
+        calc_dis_loss = self.calc_dis_loss
+        calc_cyc_loss = self.calc_cyc_loss
+
+        fakeB = G1(imgA, training=True)
+        cycleA = G2(fakeB, training=True)
+
+        fakeA = G2(imgB, training=True)
+        cycleB = G1(fakeA, training=True)
+
+        imgA_dis = DA(imgA, training=True)
+        imgB_dis = DB(imgB, training=True)
+        fakeB_dis = DB(fakeB, training=True)
+        fakeA_dis = DA(fakeA, training=True)
+
+        cyc_loss_A=calc_cyc_loss(imgA, cycleA)
+        cyc_loss_B=calc_cyc_loss(imgB, cycleB)
+        tot_cyc_loss = cyc_loss_A+cyc_loss_B
+
+        DA_loss = calc_dis_loss(fakeA_dis, imgA_dis)
+        DB_loss = calc_dis_loss(fakeB_dis, imgB_dis)
+        
+        G1_loss = calc_gan_loss(tot_cyc_loss, fakeB_dis)
+        G2_loss = calc_gan_loss(tot_cyc_loss, fakeA_dis)
+
+        return G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss
+
+    def train_step(self, imgA, imgB):
+        """
+        G1:A->B
+        G2:B->A
+        """
+        G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB
+        G1_op,G2_op,DA_op,DB_op=self.G1_op,self.G2_op,self.DA_op,self.DB_op
+        calc_gan_loss = self.calc_gan_loss
+        calc_dis_loss = self.calc_dis_loss
+        calc_cyc_loss = self.calc_cyc_loss
+
+        with tf.GradientTape(persistent=True) as tape:
+            fakeB = G1(imgA, training=True)
+            cycleA = G2(fakeB, training=True)
+
+            fakeA = G2(imgB, training=True)
+            cycleB = G1(fakeA, training=True)
+
+            imgA_dis = DA(imgA, training=True)
+            imgB_dis = DB(imgB, training=True)
+            fakeB_dis = DB(fakeB, training=True)
+            fakeA_dis = DA(fakeA, training=True)
+
+            cyc_loss_A=calc_cyc_loss(imgA, cycleA)
+            cyc_loss_B=calc_cyc_loss(imgB, cycleB)
+            tot_cyc_loss = cyc_loss_A+cyc_loss_B
+
+            DA_loss = calc_dis_loss(fakeA_dis, imgA_dis)
+            DB_loss = calc_dis_loss(fakeB_dis, imgB_dis)
+            
+            G1_loss = calc_gan_loss(tot_cyc_loss, fakeB_dis)
+            G2_loss = calc_gan_loss(tot_cyc_loss, fakeA_dis)
+
+        list(map(self.applyop,[tape,tape,tape,tape],[G1_op,G2_op,DA_op,DB_op],[G1, G2, DA, DB],[G1_loss,G2_loss,DA_loss,DB_loss]))
+
+        return G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss
+
+    def train(self, train_ds, val_ds, batch_size=4, epoches:int=None, steps: int = None, val_time=100):
+
+        history = {}
+        if steps is None:
+            steps = len(train_ds)*400//batch_size
+        val_freq = steps//val_time
+        train_losses = [tf.keras.metrics.Mean() for i in range(7)]
+        
+        start = time.time()
+
+        for step, (imgA, imgB) in train_ds.repeat().take(steps).enumerate():
+
+            show(f'Time taken for 1 dataload: {time.time()-start:.2f} sec\n')
+            start = time.time()
+            show(f'Step {step+1}/{steps}')
+
+            # if (step+1) % 1 == 0:
+            # display.clear_output(wait=True)
+            # generate_images(generator, example_input, example_target)
+
+            train_step_loss = self.train_step(imgA, imgB)
+            for meti, li in zip(train_losses, train_step_loss):
+                meti.update_state(li)
+
+            G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss = train_step_loss
+
+            showState({"G1_loss":G1_loss,"G2_loss":G2_loss,
+            "DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
+
+            show(f'Time taken for 1 steps: {time.time()-start:.2f} sec\n')
+
+            if (step+1) % val_freq == 0:
+
+                show(f"Val_step: {(step+1)//val_freq}/{val_time}")
+
+                show("Train loss:")
+                train_losses= [x.result() for x in train_losses]
+                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss= train_losses
+                showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
+
+                show("Val loss:")
+                val_losses=self.test(val_ds)
+                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss = val_losses
+                showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
+
+                self.save_checkpoint(step,G1_loss+G2_loss)
+
+                history['train'].append(train_losses)
+                history['valid'].append(val_losses)
+                for x in train_losses:
+                    x.reset_states()
+                for x in val_losses:
+                    x.reset_states()
+
+            start = time.time()
+        with open(f"{self.this_log_dir}/training_log.pic", "wb") as f:
+            pickle.dump(history, f)
+        return history
+
+
+if __name__ == '__main__':
+    G, D = Generator(), Discriminator()
+    cyc=Cycgan_pet()
+    G.summary(line_length=120)
+    D.summary(line_length=120)
