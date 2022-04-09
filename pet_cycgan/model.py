@@ -11,10 +11,11 @@ from .layers import G_conv3d, G_deconv3d, Reslayer
 K_INITER = "he_normal"
 
 
-def Generator():
+def Generator(input_shape):
 
     layers_to_concatenate = []
-    inputs = Input((128, 128, 128, 1), name='input_image')
+    # inputs = Input((192, 224, 192, 1), name='input_image')
+    inputs = Input(input_shape, name='input_image')
     nf_start = 8
     depth, resnum = 3, 3
     ks0 = 7
@@ -32,6 +33,7 @@ def Generator():
     # bottlenek
     for i in range(resnum):
         x = Reslayer(nf_start*np.power(2, depth-1), ks)(x)
+        # x = Reslayer(nf_start, ks)(x)
 
     # decoder
     for d in range(depth-1, -1, -1):
@@ -44,8 +46,8 @@ def Generator():
     return Model(inputs=inputs, outputs=outputs, name='Generator')
 
 
-def Discriminator():
-    inputs = Input((128, 128, 128, 1), name='input_image')
+def Discriminator(input_shape):
+    inputs = Input(input_shape, name='input_image')
     ks = 4
     depth = 3
     nf_start = 16
@@ -70,17 +72,18 @@ def Discriminator():
 
 
 def showState(d:dict):
-    for x,y in dict.items():
+    for x,y in d.items():
         show(f"{x} : {y:6f}")
     show("")
 
 class Cycgan_pet:
-    def __init__(self):
+    def __init__(self,input_shape=(128,128,128,1),lamda=10,example_data=None):
         """
         Cycgan with paired data. Disc for True and fake image, and L1 loss for cycle consistency.
         """
 
-        self.lamda = 10
+        self.lamda = lamda
+        self.input_shape=input_shape
         self.calc_cyc_loss = lambda inp, cyc: L1_loss(inp, cyc)
         self.calc_gan_dis_loss = lambda dis_out: L1_loss(dis_out, 1)
         self.calc_gan_loss = lambda cyc_loss, dis_out: self.lamda * \
@@ -91,8 +94,8 @@ class Cycgan_pet:
 
         # curr_lr = 0.0002*(200-max(epoch, 100))/100
         
-        self.G1, self.G2 = Generator(), Generator()
-        self.DA, self.DB = Discriminator(), Discriminator()
+        self.G1, self.G2 = Generator(input_shape), Generator(input_shape)
+        self.DA, self.DB = Discriminator(input_shape), Discriminator(input_shape)
         
         self.G1_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
         self.G2_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
@@ -102,11 +105,16 @@ class Cycgan_pet:
 
         self.applyop=lambda tape,op,model,loss:op.apply_gradients(zip(tape.gradient(loss,model.trainable_variables),model.trainable_variables))
 
-        self.log_dir="logs/"
-        self.this_log_dir=self.log_dir + f"lamda{self.lamda}"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.path=f"{self.this_log_dir}/Pet_cyc"
+        self.log_dir="logs/" + f"lamda{self.lamda}"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.path=f"{self.log_dir}/Pet_cyc"
         self.prev_loss=np.inf
-        self.example=None
+        if example_data is not None:
+            x,y=example_data[0],example_data[1]
+            x,y=tf.reshape(x,input_shape[:-1]),tf.reshape(y,input_shape[:-1])
+            self.example=[x,y]
+        else:self.example=None
+
+    
 
     def save_checkpoint(self,step,now_loss):
         G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB
@@ -150,16 +158,16 @@ class Cycgan_pet:
         calc_dis_loss = self.calc_dis_loss
         calc_cyc_loss = self.calc_cyc_loss
 
-        fakeB = G1(imgA, training=True)
-        cycleA = G2(fakeB, training=True)
+        fakeB = G1(imgA, training=False)
+        cycleA = G2(fakeB, training=False)
 
-        fakeA = G2(imgB, training=True)
-        cycleB = G1(fakeA, training=True)
+        fakeA = G2(imgB, training=False)
+        cycleB = G1(fakeA, training=False)
 
-        imgA_dis = DA(imgA, training=True)
-        imgB_dis = DB(imgB, training=True)
-        fakeB_dis = DB(fakeB, training=True)
-        fakeA_dis = DA(fakeA, training=True)
+        imgA_dis = DA(imgA, training=False)
+        imgB_dis = DB(imgB, training=False)
+        fakeB_dis = DB(fakeB, training=False)
+        fakeA_dis = DA(fakeA, training=False)
 
         cyc_loss_A=calc_cyc_loss(imgA, cycleA)
         cyc_loss_B=calc_cyc_loss(imgB, cycleB)
@@ -205,12 +213,20 @@ class Cycgan_pet:
             
             G1_loss = calc_gan_loss(tot_cyc_loss, fakeB_dis)
             G2_loss = calc_gan_loss(tot_cyc_loss, fakeA_dis)
+            
+        G1_grad = tape.gradient(G1_loss, G1.trainable_variables)
+        G2_grad = tape.gradient(G2_loss, G2.trainable_variables)
+        DA_grad = tape.gradient(DA_loss, DA.trainable_variables)
+        DB_grad = tape.gradient(DB_loss, DB.trainable_variables)
 
-        list(map(self.applyop,[tape,tape,tape,tape],[G1_op,G2_op,DA_op,DB_op],[G1, G2, DA, DB],[G1_loss,G2_loss,DA_loss,DB_loss]))
+        G1_op.apply_gradients(zip(G1_grad,G1.trainable_variables))
+        G2_op.apply_gradients(zip(G2_grad,G2.trainable_variables))
+        DA_op.apply_gradients(zip(DA_grad,DA.trainable_variables))
+        DB_op.apply_gradients(zip(DB_grad,DB.trainable_variables))
 
         return G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss
 
-    def train(self, train_ds, val_ds, batch_size=4, epoches:int=None, steps: int = None, val_time=100):
+    def train(self, train_ds, val_ds, batch_size=1, epoches:int=None, steps: int = None, val_time=100):
 
         history = {}
         if steps is None:
@@ -241,7 +257,7 @@ class Cycgan_pet:
 
             show(f'Time taken for 1 steps: {time.time()-start:.2f} sec\n')
 
-            if (step+1) % val_freq == 0:
+            if (step+1) % val_freq == 0 or step == 0:
 
                 show(f"Val_step: {(step+1)//val_freq}/{val_time}")
 
@@ -265,7 +281,7 @@ class Cycgan_pet:
                     x.reset_states()
 
             start = time.time()
-        with open(f"{self.this_log_dir}/training_log.pic", "wb") as f:
+        with open(f"{self.log_dir}/training_log.pic", "wb") as f:
             pickle.dump(history, f)
         return history
 

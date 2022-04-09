@@ -88,7 +88,12 @@ class ReflectionPadding3D(Layer):
         self.padding = tuple(padding)
         self.input_spec = [InputSpec(ndim=5)]
         super(ReflectionPadding3D, self).__init__(**kwargs)
-
+    def get_config(self):
+        config=super().get_config().copy()
+        config.update({
+            'padding':self.padding
+        })
+        return config
     def compute_output_shape(self, input_shape):
         shape = (
             input_shape[0],
