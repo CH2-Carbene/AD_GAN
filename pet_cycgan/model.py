@@ -228,7 +228,7 @@ class Cycgan_pet:
 
     def train(self, train_ds, val_ds, batch_size=1, epoches:int=None, steps: int = None, val_time=100):
 
-        history = {}
+        history = {'train':[],'valid':[]}
         if steps is None:
             steps = len(train_ds)*400//batch_size
         val_freq = steps//val_time
@@ -262,22 +262,20 @@ class Cycgan_pet:
                 show(f"Val_step: {(step+1)//val_freq}/{val_time}")
 
                 show("Train loss:")
-                train_losses= [x.result() for x in train_losses]
-                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss= train_losses
+                this_train_losses= [x.result() for x in train_losses]
+                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss= this_train_losses
                 showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
 
                 show("Val loss:")
-                val_losses=self.test(val_ds)
-                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss = val_losses
+                this_val_losses=self.test(val_ds)
+                G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss = this_val_losses
                 showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
 
                 self.save_checkpoint(step,G1_loss+G2_loss)
 
-                history['train'].append(train_losses)
-                history['valid'].append(val_losses)
+                history['train'].append(this_train_losses)
+                history['valid'].append(this_val_losses)
                 for x in train_losses:
-                    x.reset_states()
-                for x in val_losses:
                     x.reset_states()
 
             start = time.time()
