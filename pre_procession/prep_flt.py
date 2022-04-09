@@ -43,10 +43,14 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
     sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
     
-    sh(f"bet b0.nii.gz b0_brain.nii.gz -f 0.3 -g 0 -m",name="1_bet_b0")
+    sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.3 -g 0 -m",name="1_bet_T1")
+    sh(f"bet b0.nii.gz b0_brain.nii.gz -R -f 0.2 -g 0 -m",name="1_bet_b0")
+    sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
 
-    sh(f"flirt -in b0_brain -ref t1_ACPC_brain -out b0_ACPC_brain -omat b0_ACPC.mat -bins 256 -cost mutualinfo -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="2_flirt_T1")
-    sh(f"flirt -in dti_FA -ref t1_ACPC_brain -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="2_apply_xfm_FA")
+    sh(f"flirt -in t1_ori_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
+    sh(f"convert_xfm -concat t1_ACPC.mat b0_2_t1.mat -omat b0_ACPC.mat",name="4_convert_xfm")
+    sh(f"flirt -in b0 -ref T1 -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
+    sh(f"flirt -in dti_FA -ref T1 -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
 
     sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
 
