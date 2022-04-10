@@ -51,8 +51,9 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"convert_xfm -concat t1_ACPC.mat b0_2_t1.mat -omat b0_ACPC.mat",name="4_convert_xfm")
     sh(f"flirt -in b0 -ref T1 -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
     sh(f"flirt -in dti_FA -ref T1 -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
+    sh(f"flirt -in b0_2_t1_fast_wmseg -ref T1 -out WM -applyxfm -init t1_ACPC.mat -interp trilinear",name="5_apply_flirt")
 
-    sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
+    # sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
 
     # sh(f"flirt -in b0 -ref t1_ori -omat m1",name="flirt1")
     # sh(f"flirt -in t1_ori -ref ~/template/MNI152_T1_0.8mm.nii.gz -out T1 -omat b0_ACPC1.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="1_flirt_ACPC")
@@ -65,6 +66,7 @@ def make_one_flt(pname,pdict,pi,outputs):
     os.makedirs(OUT)
     sh(f"cp {TMP}/T1.nii.gz {OUT}/T1.nii.gz",name="end_copyfile",base_dir=".")
     sh(f"cp {TMP}/FA.nii.gz {OUT}/FA.nii.gz",name="end_copyfile",base_dir=".")
+    sh(f"cp {TMP}/WM.nii.gz {OUT}/WM.nii.gz",name="end_copyfile",base_dir=".")
     # t1fp=os.path.join(pdict["t1"]["dir"])
     # if t1fp.endswith(".tar.gz"):
     #     sh(f"tar -xzf {t1fp} -C ./tmp/",base_dir=".")
