@@ -66,7 +66,7 @@ def Generator():
     
     # classifier
     last = Conv3DTranspose(1, kernel_size=ks, strides=2, padding='same', kernel_initializer=K_INITER, name='output_generator')(x)
-    last_norm=ReLU()(last/2+1)-1
+    # last_norm=ReLU()(last/2+1)-1
     return Model(inputs=inputs, outputs=last, name='Generator')
 
 def Discriminator():
@@ -78,7 +78,7 @@ def Discriminator():
     targets = Input((128,128,128,1), name='target_image')
     Nfilter_start = 16
     depth = 3
-    default_ks = 3
+    default_ks = 4
 
     def encoder_step(layer, Nf, ks=default_ks, norm=True):
         x = Conv3D(Nf, kernel_size=ks, strides=2, kernel_initializer=K_INITER, padding='same')(layer)
@@ -93,9 +93,9 @@ def Discriminator():
 
     for d in range(depth):
         if d==0:
-            x = encoder_step(x, Nfilter_start*np.power(2,d), False)
+            x = encoder_step(x, Nfilter_start*np.power(2,d), default_ks, norm=False)
         else:
-            x = encoder_step(x, Nfilter_start*np.power(2,d))
+            x = encoder_step(x, Nfilter_start*np.power(2,d), default_ks)
 
     x = ZeroPadding3D()(x)
     x = Conv3D(Nfilter_start*(2**depth), default_ks, strides=1, padding='valid', kernel_initializer=K_INITER)(x) 
