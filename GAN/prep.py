@@ -1,4 +1,3 @@
-### image argument & preprocession functions
 from scipy.ndimage.interpolation import affine_transform
 import elasticdeform,scipy
 import numpy as np
@@ -27,7 +26,7 @@ def Rotation3D(max_rate=np.pi/2):
     Rotate a 3D image with alfa, beta and gamma degree respect the axis x, y and z respectively.
     The three angles are chosen randomly between 0-90 degrees
     """
-    def rotation3D(x, y):
+    def rotation3D(data):
 
         alpha, beta, gamma = max_rate*np.random.random_sample(3,)
         Rx = np.array([[1, 0, 0],
@@ -43,11 +42,12 @@ def Rotation3D(max_rate=np.pi/2):
                     [0, 0, 1]])
         
         R = np.dot(np.dot(Rx, Ry), Rz)
+        for i in range(len(data)):
+            data[i]=affine_transform(data[i], R, offset=0, order=3, mode='constant')
+        # x_rot = 
+        # y_rot = affine_transform(y, R, offset=0, order=0, mode='constant')
         
-        x_rot = affine_transform(x, R, offset=0, order=3, mode='constant')
-        y_rot = affine_transform(y, R, offset=0, order=0, mode='constant')
-        
-        return x_rot, y_rot
+        return data
     return rotation3D
 
 def Flip3D(axis=(1,0,0)):
@@ -56,13 +56,13 @@ def Flip3D(axis=(1,0,0)):
     """
     choice = np.random.randint(2,size=(3))*np.array(axis)
     choice=1-choice*2
-    def flip3D(x, y):
+    def flip3D(data):
 
 
-        x_flip = x[::choice[0], ::choice[1], ::choice[2]]
-        y_flip = y[::choice[0], ::choice[1], ::choice[2]]
+        data = data[:,::choice[0], ::choice[1], ::choice[2]]
+        # y_flip = y[::choice[0], ::choice[1], ::choice[2]]
         
-        return x_flip, y_flip
+        return data
     return flip3D
 
 def Elastic(sigma=2,order=[1,0]):
@@ -84,39 +84,46 @@ def Brightness(down=0.8,up=1.2):
 
     new_im = gain * im^gamma
     """
-    def brightness(x, y):
-       
+    def brightness(data):
+
+        x=data[0]
         x_new = np.zeros(x.shape)
         gain, gamma = (up - down) * np.random.random_sample(2,) + down
         x_new = np.sign(x)*gain*(np.abs(x)**gamma)
-        
-        return x_new, y
+        data[0]=x_new
+
+        return data
     return brightness
 
 def Static_select(tgsize=(128,128,128)):
     select_size=np.array(tgsize)
-    st_range=np.array((227, 272, 227))-select_size
-    st=np.random.randint(st_range)
-    ed=st+select_size
+    
     def static_select(data):
-        x,y=data[0,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]],data[1,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
-        mask=(x!=0)&(y!=0)
-        x,y=x*mask,y*mask
-        return x,y
+        # print(data.shape)
+        st_range=np.array(data[0].shape)-select_size
+        st=np.random.randint(st_range)
+        ed=st+select_size
+        data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        # mask=(x!=0)&(y!=0)
+        # x,y=x*mask,y*mask
+        return data
     return static_select
 
 def Random_select(tgsize=(128,128,128),low=0.8,high=1.2):
     tgsize_arr=np.array(tgsize)
     select_size=(np.random.uniform(low,high,size=(3))*tgsize_arr).astype(int)
-    st_range=np.array((227, 272, 227))-select_size
-    st=np.random.randint(st_range)
-    ed=st+tgsize_arr
-    def static_select(data):
-        x,y=data[0,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]],data[1,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
-        mask=(x!=0)&(y!=0)
-        x,y=x*mask,y*mask
-        return resize(x,tgsize),resize(y,tgsize)
-    return static_select
+
+    def random_select(data):
+        st_range=np.array(data[0].shape)-select_size
+        st=np.random.randint(st_range)
+        ed=st+tgsize_arr
+        data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        resized_data=[resize(img,tgsize)for img in data]
+        # mask=(x!=0)&(y!=0)
+        # x,y=x*mask,y*mask
+        # return data
+        return np.array(resized_data)
+    return random_select
     
 
 def resize(img,tg_shape)->np.ndarray:
@@ -147,83 +154,27 @@ def normalize(img:np.ndarray,save_rate=0.99)->np.ndarray:
 #     return x,y
 
 default_argfunc_pool=[
-        Flip3D(axis=[1,0,0]),
-        Brightness(down=0.8,up=1.2),
-        # Rotation3D(max_rate=np.pi/6),#考虑减小到5°，消融对比
-        # Elastic(sigma=2,order=[1,0]),
-    ]
+    Flip3D(axis=[1,0,0]),
+    Brightness(down=0.8,up=1.2),
+    # Rotation3D(max_rate=np.pi/6),#考虑减小到5°，消融对比
+    # Elastic(sigma=2,order=[1,0]),
+]
 
 # @tf.function()
-def random_jitter(input_data,argfunc_pool=default_argfunc_pool):
+# def random_jitter(input_data,argfunc_pool=default_argfunc_pool,only_select=False):
 
-    n=len(argfunc_pool)
-    decision=np.random.randint(2, size=(n))
-    arg_list=[]
-    # print(decision)
-    if np.random.random_sample()<0.2:
-        arg_list.append(Static_select((128,128,128)))
-    else:
-        arg_list.append(Random_select((128,128,128))) #Select is must
-        for i in range(n):
-            if decision[i]:arg_list.append(argfunc_pool[i])
+#     n=len(argfunc_pool)
+#     decision=np.random.randint(2, size=(n))
+#     arg_list=[]
+#     # print(decision)
+#     if only_select or np.random.random_sample()<0.2:
+#         arg_list.append(Static_select((128,128,128)))
+#     else:
+#         arg_list.append(Random_select((128,128,128))) #Select is must
+#         for i in range(n):
+#             if decision[i]:arg_list.append(argfunc_pool[i])
 
-    combine_arg=fn_pipe(arg_list)
-    input_image_arg,real_img_arg=combine_arg((input_data,))
-    # combine_aug((input_data), arg_list)
-    return input_image_arg,real_img_arg#random_select(input_image_arg,real_img_arg)
-    ### Only brainsize>50% image is saved
-    # psize=(128,128,128)
-    # tot=np.prod(psize)
-    # bi=np.zeros(np.array(input_image_arg.shape)+1,dtype=np.int64)
-    
-    # bi[:-1,:-1,:-1][input_image_arg!=0]=1
-    # N,M,L=input_image_arg.shape
-    # for i in range(N):
-    #     for j in range(M):
-    #         for k in range(L):
-    #             bi[i][j][k]+=bi[i-1][j][k]+bi[i][j-1][k]+bi[i][j][k-1]-bi[i-1][j-1][k]-bi[i-1][j][k-1]-bi[i][j-1][k-1]+bi[i-1][j-1][k-1]
-
-    # ci=np.zeros(np.array(input_image_arg.shape)-np.array(psize),bi.dtype)
-    # for i in range(-1,N-psize[0]-1):
-    #     for j in range(-1,M-psize[1]-1):
-    #         for k in range(-1,L-psize[2]-1):
-    #             p,q,r=i+psize[0],j+psize[1],k+psize[2]
-    #             ci[i+1][j+1][k+1]=bi[p][q][r]-bi[p][q][k]-bi[p][j][r]-bi[i][q][r]+bi[i][j][r]+bi[i][q][k]+bi[p][j][k]-bi[i][j][k]
-    
-    # print(">half size:",len(ci[ci*2>tot])/len(ci.flatten()))
-    # idx=np.random.randint(len(ci[ci*2>tot]))
-    # find=False
-    # for i in range(N-psize[0]):
-    #     if not find:
-    #         for j in range(M-psize[1]):
-    #             if not find:
-    #                 for k in range(L-psize[2]):
-    #                     if ci[i][j][k]*2>tot:
-    #                         if idx==0:
-    #                             start_pos=(i,j,k)
-    #                             find=True
-    #                             break
-    #                         idx-=1
-        
-    # return Patch_extration(psize,start_pos)(input_image_arg,real_img_arg)
-
-    it=0
-    while True:
-        it+=1
-        pim,rim=Patch_extration()(input_image_arg,real_img_arg)
-        t=len(pim[pim!=0])
-        # print(t,' ',len(pim.flatten()))
-        if t*2>len(pim.flatten()):
-            # print(it)
-            return pim,rim
-
-def random_select(input_image,real_img):
-    it=0
-    while True:
-        it+=1
-        pim,rim=Patch_extration()(input_image,real_img)
-        t=len(pim[pim!=0])
-        # print(t,' ',len(pim.flatten()))
-        if t*2>len(pim.flatten()):
-            # print(it)
-            return pim,rim
+#     combine_arg=fn_pipe(arg_list)
+#     data=combine_arg((input_data,))
+#     # combine_aug((input_data), arg_list)
+#     return data

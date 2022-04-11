@@ -1,6 +1,6 @@
 DEBUG=True
 NEWPATH="datasets/brainmap/npdata"
 BATCH_SIZE=4
-ALPHA=25
+ALPHA=5
 GAN_DIRECT="T1-FA"
 N_CPU=20

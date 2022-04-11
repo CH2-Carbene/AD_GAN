@@ -102,12 +102,14 @@ class Cycgan_pet:
         self.DA_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
         self.DB_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 
-
+        self.outputs=["G1_loss","G2_loss","DA_loss","DB_loss","cyc_loss_A","cyc_loss_B","tot_cyc_loss"]
+        
         self.applyop=lambda tape,op,model,loss:op.apply_gradients(zip(tape.gradient(loss,model.trainable_variables),model.trainable_variables))
 
         self.log_dir="logs/" + f"lamda{self.lamda}"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path=f"{self.log_dir}/Pet_cyc"
         self.prev_loss=np.inf
+
         if example_data is not None:
             x,y=example_data[0],example_data[1]
             x,y=tf.reshape(x,input_shape[:-1]),tf.reshape(y,input_shape[:-1])
@@ -137,7 +139,7 @@ class Cycgan_pet:
             DA.save(f"{path}/DA.h5")
             DB.save(f"{path}/DB.h5")
             show(f"Validation loss decresaed from {prev_loss:.4f} to {now_loss:.4f}. Models' weights are now saved.")
-            prev_loss = now_loss
+            self.prev_loss = now_loss
         else:
             show(f"Validation loss did not decrese from {prev_loss:.4f} to {now_loss:.4f}.")
 

@@ -3,6 +3,20 @@ import numpy as np
 
 loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
+def L1_loss(x:tf.Tensor,y:tf.Tensor):
+    if isinstance(x,tf.Tensor) and isinstance(y,tf.Tensor):
+        # x=tf.convert_to_tensor(x, 'float32')
+        # y=tf.convert_to_tensor(y, 'float32')
+        y=tf.reshape(y,x.shape)
+    return tf.reduce_mean(tf.abs(x-y))
+
+def L2_loss(x:tf.Tensor,y:tf.Tensor):
+    if isinstance(x,tf.Tensor) and isinstance(y,tf.Tensor):
+        # x=tf.convert_to_tensor(x, 'float32')
+        # y=tf.convert_to_tensor(y, 'float32')
+        y=tf.reshape(y,x.shape)
+    return tf.reduce_mean(tf.math.squared_difference(x,y))
+
 def diceLoss(y_true, y_pred):
     
     y_true = tf.convert_to_tensor(y_true, 'float32')
