@@ -27,7 +27,7 @@ def make_one_flt(pname,pdict,pi,outputs):
     TMP=f"flt/{pi}"
     OUT=f"paired/{pi}"
     T1DIR=pdict["t1"]
-    DTIDIR=pdict["dti"]
+    T2DIR=pdict["dti"]
 
     sh=lambda cmd,name="unknown",base_dir=TMP:run_sh(cmd,name=name,base_dir=base_dir,pname=pname,outputs=outputs)
 
@@ -39,19 +39,19 @@ def make_one_flt(pname,pdict,pi,outputs):
         shutil.rmtree(TMP)
     os.makedirs(TMP)
     
-    sh(f"cp -t {TMP} {T1DIR}/* {DTIDIR}/*",name="0_getfile",base_dir=".")
+    sh(f"cp -t {TMP} {T1DIR}/* {T2DIR}/*",name="0_getfile",base_dir=".")
     sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
-    sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
+    sh(f"mv t2_n4correct.nii.gz t2_ori.nii.gz",name="0_getfile")
     
-    sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.4 -g 0 -m",name="1_bet_T1")
-    sh(f"bet b0.nii.gz b0_brain.nii.gz -R -f 0.2 -g 0 -m",name="1_bet_b0")
-    sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
+    sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.5 -g 0 -m",name="1_bet_T1")
+    sh(f"bet t2_ori.nii.gz t2_ori_brain.nii.gz -R -f 0.5 -g 0 -m",name="1_bet_T2")
+    # sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
 
-    sh(f"flirt -in t1_ori_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
-    sh(f"convert_xfm -concat t1_ACPC.mat b0_2_t1.mat -omat b0_ACPC.mat",name="4_convert_xfm")
-    sh(f"flirt -in b0 -ref T1 -out b0_ACPC -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
-    sh(f"flirt -in dti_FA -ref T1 -out FA -applyxfm -init b0_ACPC.mat -interp trilinear",name="5_apply_flirt")
-    sh(f"flirt -in b0_2_t1_fast_wmseg -ref T1 -out WM -applyxfm -init t1_ACPC.mat -interp trilinear",name="5_apply_flirt")
+    sh(f"flirt -in t1_ori_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -interp trilinear -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
+    sh(f"flirt -in t2_ori -ref t1_ori -omat t2_t1.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_T1")
+
+    sh(f"convert_xfm -concat t1_ACPC.mat t2_t1.mat -omat t2_ACPC.mat",name="4_convert_xfm")
+    sh(f"flirt -in t2_ori -ref T1 -out T2 -applyxfm -init t2_ACPC.mat -interp trilinear",name="5_apply_flirt")
 
     # sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
 
@@ -65,8 +65,7 @@ def make_one_flt(pname,pdict,pi,outputs):
         shutil.rmtree(OUT)
     os.makedirs(OUT)
     sh(f"cp {TMP}/T1.nii.gz {OUT}/T1.nii.gz",name="end_copyfile",base_dir=".")
-    sh(f"cp {TMP}/FA.nii.gz {OUT}/FA.nii.gz",name="end_copyfile",base_dir=".")
-    sh(f"cp {TMP}/WM.nii.gz {OUT}/WM.nii.gz",name="end_copyfile",base_dir=".")
+    sh(f"cp {TMP}/T2.nii.gz {OUT}/T2.nii.gz",name="end_copyfile",base_dir=".")
     # t1fp=os.path.join(pdict["t1"]["dir"])
     # if t1fp.endswith(".tar.gz"):
     #     sh(f"tar -xzf {t1fp} -C ./tmp/",base_dir=".")
@@ -99,7 +98,7 @@ def run_make_flt(pname,pdict,pi):
             show(f"handle {pname} Error: {e}{', retrying...' if i<4 else ', failed.'}")
 
     show("".join(outputs))
-    raise Exception(pname,f"{pname} make T1 failed.")
+    raise Exception(pname,f"{pname} make flt failed.")
 
 def get_ptdict():
     ptdict={}
@@ -115,17 +114,17 @@ def get_ptdict():
                 if os.path.isdir(t1dir):
                     ptdict[pid]["t1"]=t1dir
     
-    for desti in os.listdir("dti"):
-        if not os.path.isdir(f"dti/{desti}"):continue
-        for pati in os.listdir(f"dti/{desti}"):
-            if os.path.isdir(f"dti/{desti}/{pati}") and pati!="result" and pati!="checkpoints":
+    for desti in os.listdir("t2"):
+        if not os.path.isdir(f"t2/{desti}"):continue
+        for pati in os.listdir(f"t2/{desti}"):
+            if os.path.isdir(f"t2/{desti}/{pati}") and pati!="result" and pati!="checkpoints":
                 pid=f"{desti}/{pati}"
                 if pid not in ptdict:
                     ptdict[pid]={}
 
-                dtidir=f"dti/{desti}/result/{pati}"
-                if os.path.isdir(dtidir):
-                    ptdict[pid]["dti"]=dtidir
+                t2dir=f"t2/{desti}/result/{pati}"
+                if os.path.isdir(t2dir):
+                    ptdict[pid]["t2"]=t2dir
     return ptdict
 
 if __name__=='__main__':
@@ -144,25 +143,25 @@ if __name__=='__main__':
     mulpool_flt = multiprocessing.Pool(processes=pn)
 
     finished_set=set(os.listdir("./paired"))
-    not1,nodti=[],[]
+    not1,not2=[],[]
     for i,pid in enumerate(sorted(ptdict.keys())):
         if str(i) in finished_set:
             show(f"{i}_{pid} has finished, passed.")
             continue
         ptdir=ptdict[pid]
         t1dir=ptdir.get("t1")
-        dtidir=ptdir.get("dti")
+        t2dir=ptdir.get("t2")
         if t1dir is None:
             show(f"{pid} have no T1")
             not1.append(pid)
             continue
-        if dtidir is None:
-            show(f"{pid} have no dti")
-            nodti.append(pid)
+        if t2dir is None:
+            show(f"{pid} have no t2")
+            not2.append(pid)
             continue
         mulpool_flt.apply_async(run_make_flt,args=(pid,ptdir,i,),error_callback=lambda e:fail_set.add(e.args[0]))
     mulpool_flt.close()
     mulpool_flt.join()
     show(f"No t1:{not1}")
-    show(f"No dti:{nodti}")
+    show(f"No t2:{not2}")
     
