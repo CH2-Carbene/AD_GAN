@@ -24,10 +24,10 @@ def run_sh(cmd,name="unknown",base_dir="tmp",pname="unknown",outputs=[]):
 def make_one_flt(pname,pdict,pi,outputs):
     show(f"Working with {pname} to T1_prep:")
     
-    TMP=f"flt/{pi}"
-    OUT=f"paired/{pi}"
+    TMP=f"flt_t2/{pi}"
+    OUT=f"paired_t2/{pi}"
     T1DIR=pdict["t1"]
-    T2DIR=pdict["dti"]
+    T2DIR=pdict["t2"]
 
     sh=lambda cmd,name="unknown",base_dir=TMP:run_sh(cmd,name=name,base_dir=base_dir,pname=pname,outputs=outputs)
 
@@ -40,19 +40,21 @@ def make_one_flt(pname,pdict,pi,outputs):
     os.makedirs(TMP)
     
     sh(f"cp -t {TMP} {T1DIR}/* {T2DIR}/*",name="0_getfile",base_dir=".")
-    sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
+    # sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
     sh(f"mv t2_n4correct.nii.gz t2_ori.nii.gz",name="0_getfile")
     
-    sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.5 -g 0 -m",name="1_bet_T1")
-    sh(f"bet t2_ori.nii.gz t2_ori_brain.nii.gz -R -f 0.5 -g 0 -m",name="1_bet_T2")
+    # sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.5 -g 0 -m",name="1_bet_T1")
+    sh(f"bet t2_ori.nii.gz t2_brain_bet.nii.gz -R -f 0.3 -g 0 -m",name="1_bet_T2")
     # sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
 
-    sh(f"flirt -in t1_ori_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -interp trilinear -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
-    sh(f"flirt -in t2_ori -ref t1_ori -omat t2_t1.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_T1")
+    sh(f"flirt -in t1_brain.nii.gz -ref ~/template/MNI152_T1_2mm_roi.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -interp trilinear -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
+    sh(f"flirt -in t2_brain_bet -ref t1_brain -omat t2_t1.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_T1")
 
     sh(f"convert_xfm -concat t1_ACPC.mat t2_t1.mat -omat t2_ACPC.mat",name="4_convert_xfm")
-    sh(f"flirt -in t2_ori -ref T1 -out T2 -applyxfm -init t2_ACPC.mat -interp trilinear",name="5_apply_flirt")
-
+    sh(f"flirt -in t2_brain_bet -ref T1 -out t2_acpc -applyxfm -init t2_ACPC.mat -interp trilinear",name="5_apply_flirt")
+    sh(f"fslmaths t2_acpc -mas T1 T2")
+    # sh(f"fslroi T1 T1 3 84 5 100 0 84")
+    # sh(f"fslroi T2 T2 3 84 5 100 0 84")
     # sh(f"mv t1_ACPC_brain.nii.gz T1.nii.gz",name="2_get_T1")
 
     # sh(f"flirt -in b0 -ref t1_ori -omat m1",name="flirt1")
@@ -133,8 +135,8 @@ if __name__=='__main__':
     except:
         pn=pn_default
     show(f"processor_num: {(pn)}")
-    os.makedirs("flt",exist_ok=True)
-    os.makedirs("paired",exist_ok=True)
+    os.makedirs("flt_t2",exist_ok=True)
+    os.makedirs("paired_t2",exist_ok=True)
 
     ptdict=get_ptdict()
     show(ptdict)
@@ -142,7 +144,7 @@ if __name__=='__main__':
     fail_set=set()
     mulpool_flt = multiprocessing.Pool(processes=pn)
 
-    finished_set=set(os.listdir("./paired"))
+    finished_set=set(os.listdir("./paired_t2"))
     not1,not2=[],[]
     for i,pid in enumerate(sorted(ptdict.keys())):
         if str(i) in finished_set:

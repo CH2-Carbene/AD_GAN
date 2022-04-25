@@ -1,7 +1,8 @@
 import time,datetime,os,pickle
 import numpy as np
 import tensorflow as tf
-from units.base import show,cyc_generate_images
+from units.base import show,visualize,calc_metric
+from units.prep import normalize
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D
 from tensorflow.keras.optimizers import Adam
@@ -116,7 +117,26 @@ class Cycgan_pet:
             self.example=[x,y]
         else:self.example=None
 
-    
+    def load_model(self,model_path):
+        self.G1.load_weights(model_path+"/G1.h5")
+        self.G2.load_weights(model_path+"/G2.h5")
+        self.DA.load_weights(model_path+"/DA.h5")
+        self.DB.load_weights(model_path+"/DB.h5")
+
+    def generate_images(self, generate_img:tf.Tensor=None, save_path=None):
+        if generate_img is None:
+            generate_img=self.example
+        imgA,imgB=generate_img
+        G1,G2=self.G1,self.G2
+
+        fakeB = tf.reshape(G1(imgA[tf.newaxis,...,tf.newaxis], training=False), imgB.shape)
+        cycA = tf.reshape(G2(fakeB[tf.newaxis,...,tf.newaxis], training=False), imgA.shape)
+        fakeA = tf.reshape(G2(imgB[tf.newaxis,...,tf.newaxis], training=False), imgB.shape)
+        cycB = tf.reshape(G1(fakeA[tf.newaxis,...,tf.newaxis], training=False), imgA.shape)
+
+        display_list = [imgA,imgB,fakeA,fakeB,cycA,cycB]
+        # title = ['Input Image', 'Ground Truth', 'Predicted Image']
+        visualize(display_list, save_path=save_path)
 
     def save_checkpoint(self,step,now_loss):
         G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB
@@ -126,8 +146,7 @@ class Cycgan_pet:
         os.makedirs(save_path, exist_ok=True)
 
         if self.example is not None:
-            cyc_generate_images(G1,G2, self.example[0], self.example[1],
-                        save_path=f"{save_path}/show.png")
+            self.generate_images(save_path=f"{save_path}/show.png")
         G1.save(f"{save_path}/G1.h5")
         G2.save(f"{save_path}/G2.h5")
         DA.save(f"{save_path}/DA.h5")
@@ -143,6 +162,41 @@ class Cycgan_pet:
         else:
             show(f"Validation loss did not decrese from {prev_loss:.4f} to {now_loss:.4f}.")
 
+    def eval_result_norm(self,test_ds):
+        pA={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        pB={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        num=0
+        G1,G2=self.G1,self.G2
+        for val_step, (imgA, imgB) in test_ds.enumerate():
+            fakeB = G1(imgA, training=False)
+            fakeA = G2(imgB, training=False)
+            dA=calc_metric(normalize(imgA[0,...,0].numpy()),normalize(fakeA[0,...,0].numpy()))
+            dB=calc_metric(normalize(imgB[0,...,0].numpy()),normalize(fakeB[0,...,0].numpy()))
+            for x,y in dA.items():
+                pA[x]+=y
+            for x,y in dB.items():
+                pB[x]+=y
+            num+=1
+        resA,resB={x:y/num for x,y in pA.items()},{x:y/num for x,y in pB.items()}
+        return resA,resB
+
+    def eval_result(self,test_ds):
+        pA={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        pB={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        num=0
+        G1,G2=self.G1,self.G2
+        for val_step, (imgA, imgB) in test_ds.enumerate():
+            fakeB = G1(imgA, training=False)
+            fakeA = G2(imgB, training=False)
+            dA=calc_metric(imgA[0,...,0].numpy(),fakeA[0,...,0].numpy())
+            dB=calc_metric(imgB[0,...,0].numpy(),fakeB[0,...,0].numpy())
+            for x,y in dA.items():
+                pA[x]+=y
+            for x,y in dB.items():
+                pB[x]+=y
+            num+=1
+        resA,resB={x:y/num for x,y in pA.items()},{x:y/num for x,y in pB.items()}
+        return resA,resB
 
     def test(self, test_ds):
         test_losses = [tf.keras.metrics.Mean() for i in range(7)]
@@ -151,7 +205,6 @@ class Cycgan_pet:
             for meti, li in zip(test_losses, test_step_loss):
                 meti.update_state(li)
         return [x.result() for x in test_losses]
-
 
     def test_step(self,imgA, imgB):
         G1, G2, DA, DB = self.G1, self.G2, self.DA, self.DB

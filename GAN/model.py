@@ -4,7 +4,8 @@ import os
 import pickle
 import numpy as np
 import tensorflow as tf
-from units.base import show, generate_images
+from units.base import show, generate_images,calc_metric,visualize
+from units.prep import normalize
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D
 from tensorflow.keras.optimizers import Adam
@@ -79,7 +80,6 @@ def showState(d: dict):
         show(f"{x} : {y:6f}")
     show("")
 
-
 class Pix2pix:
     def __init__(self, input_shape=(128, 128, 128, 1), alpha=5, example_data=None):
         """
@@ -122,6 +122,22 @@ class Pix2pix:
         else:
             self.example = None
 
+    def load_model(self,model_path):
+        self.G.load_weights(model_path+"/G.h5")
+        self.D.load_weights(model_path+"/D.h5")
+
+    def generate_images(self, generate_img:tf.Tensor=None, save_path=None):
+        if generate_img is None:
+            generate_img=self.example
+        imgA,imgB=generate_img
+        fakeB = tf.reshape(self.G(imgA[tf.newaxis,...,tf.newaxis], training=False), imgA.shape)
+        # plt.figure(figsize=(15, 15))
+        # print(test_input[0].shape, tar[0].shape, prediction[0].shape)
+        display_list = [imgA,imgB,fakeB]
+        title = ['Input Image', 'Ground Truth', 'Predicted Image']
+
+        visualize(display_list, title=title, save_path=save_path)
+
     def save_checkpoint(self, step, now_loss):
         G, D = self.G, self.D
         path, prev_loss = self.path, self.prev_loss
@@ -143,6 +159,32 @@ class Pix2pix:
             self.prev_loss = now_loss
         else:
             show(f"Validation loss did not decrese from {prev_loss:.4f} to {now_loss:.4f}.")
+
+    def eval_result_norm(self,test_ds):
+        pB={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        num=0
+        G=self.G
+        for val_step, (imgA, imgB) in test_ds.enumerate():
+            fakeB = G(imgA, training=False)
+            dB=calc_metric(normalize(imgA[0,...,0].numpy()),normalize(fakeB[0,...,0].numpy()))
+            for x,y in dB.items():
+                pB[x]+=y
+            num+=1
+        resB={x:y/num for x,y in pB.items()}
+        return resB
+            
+    def eval_result(self,test_ds):
+        pB={"MSE":0,"SSIM":0,"PSNR":0,"NMI":0}
+        num=0
+        G=self.G
+        for val_step, (imgA, imgB) in test_ds.enumerate():
+            fakeB = G(imgA, training=False)
+            dB=calc_metric(imgB[0,...,0].numpy(),fakeB[0,...,0].numpy())
+            for x,y in dB.items():
+                pB[x]+=y
+            num+=1
+        resB={x:y/num for x,y in pB.items()}
+        return resB
 
     def test(self, test_ds):
         test_losses = [tf.keras.metrics.Mean() for i in range(4)]
