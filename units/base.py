@@ -81,3 +81,18 @@ def cyc_generate_images(G1, G2, imgA:tf.Tensor, imgB:tf.Tensor, save_path=None, 
     # title = ['Input Image', 'Ground Truth', 'Predicted Image']
 
     visualize(display_list, title=title, save_path=save_path)
+
+def calc_metric(real,fak):
+    try:
+        from skimage.metrics import structural_similarity as SSIM
+        from skimage.metrics import peak_signal_noise_ratio as PSNR
+        from skimage.metrics import mean_squared_error as MSE
+        from skimage.metrics import normalized_mutual_information as NMI
+
+        real[real>1]=1
+        fak[fak>1]=1
+        d={"MSE":MSE(real,fak),"SSIM":SSIM(real,fak),"PSNR":PSNR(real,fak),"NMI":NMI(real,fak)}
+        return d
+    except:
+        return {}
+    
