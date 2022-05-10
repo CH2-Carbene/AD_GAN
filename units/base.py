@@ -5,6 +5,7 @@ from units.globals import DEBUG
 if not DEBUG:
     mpl.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from functools import reduce
 
 def fn_pipe(func_list):
@@ -56,6 +57,65 @@ def visualize(X, title="", save_path=None):
         plt.show()
     plt.close()
 
+def vis_img(X, title="", save_path=None):
+    if not isinstance(X, list):
+        X = [X]
+    # plt.title(title)
+    plt.figure(figsize=(15, 4*len(X)))
+    cp=cm.get_cmap('gray')
+    for i, x in enumerate(X):
+        a, b, c = x.shape
+
+        plt.subplot(len(X), 4, 4*i+1)
+        plt.imshow(np.rot90(x[a//2, :, :]),vmin=0,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+2)
+        plt.imshow(np.rot90(x[:, b//2, :]),vmin=0,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+3)
+        plt.imshow(np.rot90(x[:, :, c//2]),vmin=0,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+4)
+        plt.axis('off')
+        plt.colorbar(location='left',extend="max")
+        # plt.pcolor(X, Y, v, cmap=cm)
+    # plt.clim(-1,1,extend="both")  # identical to caxis([-4,4]) in MATLAB
+        
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100)
+    if DEBUG:
+        plt.show()
+    plt.close()
+
+def vis_img_delta(X, title="", save_path=None):
+    if not isinstance(X, list):
+        X = [X]
+    # plt.title(title)
+    plt.figure(figsize=(15, 4*len(X)))
+    cp=cm.get_cmap('coolwarm',lut=100)
+    for i, x in enumerate(X):
+        a, b, c = x.shape
+
+        plt.subplot(len(X), 4, 4*i+1)
+        plt.imshow(np.rot90(x[a//2, :, :]),vmin=-1,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+2)
+        plt.imshow(np.rot90(x[:, b//2, :]),vmin=-1,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+3)
+        plt.imshow(np.rot90(x[:, :, c//2]),vmin=-1,vmax=1,cmap=cp)
+        plt.axis('off')
+        plt.subplot(len(X), 4, 4*i+4)
+        plt.axis('off')
+        plt.colorbar(location='left',extend="both")
+        # plt.pcolor(X, Y, v, cmap=cm)
+    # plt.clim(-1,1,extend="both")  # identical to caxis([-4,4]) in MATLAB
+        
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100)
+    if DEBUG:
+        plt.show()
+    plt.close()
 
 def generate_images(model, inp, tar, save_path=None, title=""):
     fake = tf.reshape(model(inp[tf.newaxis,...,tf.newaxis], training=False), inp.shape)
