@@ -107,7 +107,7 @@ class Cycgan_pet:
         
         self.applyop=lambda tape,op,model,loss:op.apply_gradients(zip(tape.gradient(loss,model.trainable_variables),model.trainable_variables))
 
-        self.log_dir="logs/" + f"lamda{self.lamda}"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.log_dir="logs/" + f"lamda{self.lamda}_"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path=f"{self.log_dir}/Pet_cyc"
         self.prev_loss=np.inf
 
@@ -344,3 +344,5 @@ if __name__ == '__main__':
     cyc=Cycgan_pet()
     G.summary(line_length=120)
     D.summary(line_length=120)
+    tf.keras.utils.plot_model(G,to_file="G.png",show_shapes=True)
+    tf.keras.utils.plot_model(D,to_file="D.png",show_shapes=True)

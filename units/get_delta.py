@@ -34,13 +34,14 @@ def get_half_delta(G1,G2,imgA,tms=3):
         # SB_A.append(G2(SB_B[-1]))
         # SB_B.append(G1(SB_A[-1]))
     SA_A=SA_A[1:]
-    
+
+    img_mask=(imgA[0,...,0]==0)
     for i in range(tms):
-        SA_A[i]=SA_A[i][0,...,0]
-        # SA_A[i][imgA==0]=0
+        SA_A[i]=np.array(SA_A[i][0,...,0])
+        SA_A[i][img_mask]=0
     for i in range(tms):
-        SA_B[i]=SA_B[i][0,...,0]
-        # SA_B[i][imgA==0]=0
+        SA_B[i]=np.array(SA_B[i][0,...,0])
+        SA_B[i][img_mask]=0
 
     d_A=[fakei-imgA[0,...,0] for fakei in SA_A]
     # D_B=[fakei-imgB for fakei in SA_B[:]]
