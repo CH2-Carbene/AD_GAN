@@ -12,7 +12,7 @@ from .layers import G_conv3d, G_deconv3d, Reslayer, Concatlayer
 K_INITER = "he_normal"
 
 
-def Generator_Pan_Res(input_shape):
+def Generator(input_shape):
 
     layers_to_concatenate = []
     # inputs = Input((192, 224, 192, 1), name='input_image')
@@ -33,7 +33,7 @@ def Generator_Pan_Res(input_shape):
 
     # bottlenek
     for i in range(resnum):
-        x = Reslayer(nf_start*np.power(2, depth-1), ks)(x)
+        x = Concatlayer(nf_start*np.power(2, depth-1), ks)(x)
         # x = Reslayer(nf_start, ks)(x)
 
     # decoder
@@ -46,53 +46,6 @@ def Generator_Pan_Res(input_shape):
     outputs = ReLU()(x/2+1)-1
     return Model(inputs=inputs, outputs=outputs, name='Generator')
 
-def Generator_CH_Res(input_shape):
-
-    layers_to_concatenate = []
-    # inputs = Input((192, 224, 192, 1), name='input_image')
-    inputs = Input(input_shape, name='input_image')
-    nf_start = 8
-    depth, resnum = 3, 3
-    ks0 = 7
-    ks = 3
-    x = inputs
-
-    # encoder
-    for d in range(depth):
-        if d == 0:
-            x = G_conv3d(nf_start, ks=ks0, st=1, pad="reflect",lrelu=0.2,drop=0.2)(x)
-        else:
-            x = G_conv3d(nf_start*np.power(2, d), ks=ks, st=2, pad="same",lrelu=0.2,drop=0.2)(x)
-        layers_to_concatenate.append(x)
-    x = G_conv3d(nf_start*np.power(2, depth), ks=ks, st=2, pad="same",lrelu=0.2)(x)
-
-    # bottlenek_con
-
-    
-    # lst=x
-    # x = G_conv3d(nf_start*np.power(2, depth), ks=ks, st=1, pad="same",lrelu=0.2)(x)
-    # for i in range(resnum):
-    #     y = Concatlayer(nf_start*np.power(2, depth-1), ks)(x,lst)
-    #     lst=x
-    #     x=y
-
-    # bottlenek_Resnet
-    for i in range(resnum):
-        x = Reslayer(nf_start*np.power(2, depth), ks)(x)
-
-    # decoder
-    x = G_deconv3d(nf_start*np.power(2, depth-1), ks=ks, st=2, pad="same",lrelu=0.2)(x)
-    for d in range(depth-1, -1, -1):
-        t=layers_to_concatenate.pop()
-        x=Concatenate()([x,t])
-        if d != 0:
-            x = G_deconv3d(nf_start*np.power(2, d-1),
-                            ks=ks, st=2, pad="same",lrelu=0.2,drop=0.2)(x)
-        else:
-            x = G_conv3d(1, ks=ks0, st=1, pad="reflect")(x)
-
-    outputs = ReLU()(x/2+1)-1
-    return Model(inputs=inputs, outputs=outputs, name='Generator')
 
 def Discriminator(input_shape):
     inputs = Input(input_shape, name='input_image')
@@ -125,11 +78,10 @@ def showState(d:dict):
     show("")
 
 class Cycgan_pet:
-    def __init__(self,input_shape=(128,128,128,1),lamda=10,example_data=None,modality="",opt="Adam",G_net="CH_Res"):
+    def __init__(self,input_shape=(128,128,128,1),lamda=10,example_data=None,modality=""):
         """
         Cycgan with paired data. Disc for True and fake image, and L1 loss for cycle consistency.
         """
-
 
         self.lamda = lamda
         self.input_shape=input_shape
@@ -143,29 +95,19 @@ class Cycgan_pet:
 
         # curr_lr = 0.0002*(200-max(epoch, 100))/100
         
-        if G_net=="Pan_Res":
-            Generator=Generator_Pan_Res
-        elif G_net=="CH_Res":
-            Generator=Generator_CH_Res
-
-        # if opt=="Adam":
-        #     Opter=tf.keras.optimizers.Adam
-        # elif opt=="RMS":
-        #     Opter=tf.keras.optimizers.RMSprop
-
         self.G1, self.G2 = Generator(input_shape), Generator(input_shape)
         self.DA, self.DB = Discriminator(input_shape), Discriminator(input_shape)
         
-        self.G1_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-        self.G2_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-        self.DA_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-        self.DB_op = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+        self.G1_op = tf.keras.optimizers.RMSprop()
+        self.G2_op = tf.keras.optimizers.RMSprop()
+        self.DA_op = tf.keras.optimizers.RMSprop()
+        self.DB_op = tf.keras.optimizers.RMSprop()
 
         self.outputs=["G1_loss","G2_loss","DA_loss","DB_loss","cyc_loss_A","cyc_loss_B","tot_cyc_loss"]
         
         self.applyop=lambda tape,op,model,loss:op.apply_gradients(zip(tape.gradient(loss,model.trainable_variables),model.trainable_variables))
 
-        self.log_dir="logs/" + f"{modality}_lamda{self.lamda}_{opt}Opt_{G_net}_"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.log_dir="logs/" + f"{modality}_RMS_lamda{self.lamda}_"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path=f"{self.log_dir}/Pet_cyc"
         self.prev_loss=np.inf
 
@@ -398,9 +340,9 @@ class Cycgan_pet:
 
 
 if __name__ == '__main__':
-    G_CH, D = Generator_CH_Con(), Discriminator()
+    G, D = Generator(), Discriminator()
     cyc=Cycgan_pet()
-    G_CH.summary(line_length=120)
+    G.summary(line_length=120)
     D.summary(line_length=120)
-    tf.keras.utils.plot_model(G_CH,to_file="pet_cycgan/G_CH.png",show_shapes=True)
-    tf.keras.utils.plot_model(D,to_file="pet_cycgan/D.png",show_shapes=True)
+    tf.keras.utils.plot_model(G,to_file="G.png",show_shapes=True)
+    tf.keras.utils.plot_model(D,to_file="D.png",show_shapes=True)

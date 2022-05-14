@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J train_gan_pcyc
 #SBATCH -p bme_gpu
-#SBATCH --time=600
+#SBATCH --time=3000
 #SBATCH -N 1
 #SBATCH -n 16
 #SBATCH --mem 50g
@@ -19,6 +19,6 @@ echo start on $(date)
 # conda activate mri
 module load 7/compiler/cuda/11.0
 cd /hpc/data/home/bme/v-gujch/work/AD_GAN
-python train_GAN_select_models.py
+python train_GAN_cycgan.py
 
 echo end on $(date)

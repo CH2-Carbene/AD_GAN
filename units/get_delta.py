@@ -117,6 +117,15 @@ def generate_delta(model,in_path,out_path):
 
     ori_nii=nib.Nifti1Image(img,afi,hed)
     nib.save(ori_nii,rf"{out_path}/T1_ori.nii.gz")
+
+    for i in range(1,4):
+        SA_A_nii = nib.Nifti1Image(SA_A[i-1],afi,hed)
+        nib.save(SA_A_nii,rf"{out_path}/Fake_T1_{i}.nii.gz")
+
+    for i in range(1,4):
+        SA_B_nii = nib.Nifti1Image(SA_B[i-1],afi,hed)
+        nib.save(SA_B_nii,rf"{out_path}/Fake_FA_{i}.nii.gz")
+
     for i in range(1,4):
         delta_nii = nib.Nifti1Image(d_A[i-1],afi,hed)
         nib.save(delta_nii,rf"{out_path}/delta_{i}.nii.gz")

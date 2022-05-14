@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input,Layer,InputSpec, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D
+from tensorflow.keras.layers import Input,Layer,InputSpec, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D,Add
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow_addons.layers import InstanceNormalization
@@ -76,13 +76,24 @@ def Reslayer(Nf, ks):
     """
     def func(inputs):
         x = inputs
-        x = G_conv3d(Nf, ks=ks, st=1, pad='reflect')(x)
+        x = G_conv3d(Nf, ks=ks, st=1, pad='reflect', lrelu=0.2)(x)
         x = G_conv3d(Nf, ks=ks, st=1, pad='reflect', do_relu=False)(x)
 
-        outputs = ReLU()(x+inputs)
+        outputs = LeakyReLU(0.2)(Add()([x,inputs]))
         return outputs
     return func
 
+def Concatlayer(Nf, ks):
+    """
+    Bottom concat layer.
+    """
+    def func(x,last):
+        x = Concatenate()([x,last])
+        x = G_conv3d(Nf, ks=ks, st=1, pad='reflect',lrelu=0.2)(x)
+        # x = G_conv3d(Nf, ks=ks, st=1, pad='reflect',lrelu=0.2)(x)
+        return x
+    return func
+    
 class ReflectionPadding3D(Layer):
     def __init__(self, padding, **kwargs):
         self.padding = tuple(padding)
