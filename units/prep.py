@@ -125,7 +125,6 @@ def Random_select(tgsize=(128,128,128),low=0.8,high=1.2):
         # return data
         return np.array(resized_data)
     return random_select
-    
 
 def resize(img,tg_shape)->np.ndarray:
     orisize=np.array(img.shape)
@@ -157,24 +156,24 @@ def normalize(img:np.ndarray,save_rate=0.99)->np.ndarray:
 default_argfunc_pool=[
     Flip3D(axis=[1,0,0]),
     Brightness(down=0.8,up=1.2),
-    # Rotation3D(max_rate=np.pi/6),#考虑减小到5°，消融对比
+    Rotation3D(max_rate=np.pi/18),#考虑减小到5°，消融对比
     # Elastic(sigma=2,order=[1,0]),
 ]
 
 # @tf.function()
-def random_jitter(input_data,argfunc_pool=default_argfunc_pool,only_select=False):
+def random_jitter(input_data,argfunc_pool=default_argfunc_pool,only_select=False,select_shape=(128,128,128)):
 
     n=len(argfunc_pool)
     decision=np.random.randint(2, size=(n))
     arg_list=[]
     # print(decision)
     if only_select or np.random.random_sample()<0.2:
-        arg_list.append(Static_select((128,128,128)))
+        arg_list.append(Static_select(select_shape))
     else:
-        arg_list.append(Random_select((128,128,128))) #Select is must
+        arg_list.append(Random_select(select_shape)) #Select is must
         for i in range(n):
             if decision[i]:arg_list.append(argfunc_pool[i])
-
+        
     combine_arg=fn_pipe(arg_list)
     data=combine_arg(input_data)
     # combine_aug((input_data), arg_list)

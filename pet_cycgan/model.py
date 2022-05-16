@@ -91,7 +91,7 @@ def Generator_CH_Res(input_shape):
         else:
             x = G_conv3d(1, ks=ks0, st=1, pad="reflect")(x)
 
-    outputs = ReLU()(x/2+1)-1
+    outputs = LeakyReLU(0.2)(x)
     return Model(inputs=inputs, outputs=outputs, name='Generator')
 
 def Discriminator(input_shape):
@@ -130,7 +130,7 @@ class Cycgan_pet:
         Cycgan with paired data. Disc for True and fake image, and L1 loss for cycle consistency.
         """
 
-
+        # lamda=20
         self.lamda = lamda
         self.input_shape=input_shape
         self.calc_cyc_loss = lambda inp, cyc: L1_loss(inp, cyc)
@@ -379,10 +379,26 @@ class Cycgan_pet:
                 G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss= this_train_losses
                 showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
 
+                resA,resB=self.eval_result(train_ds)
+
+                show("Train imgA evaluate:")
+                showState(resA)
+
+                show("Train imgB evaluate:")
+                showState(resB)
+
                 show("Val loss:")
                 this_val_losses=self.test(val_ds)
                 G1_loss,G2_loss,DA_loss,DB_loss,cyc_loss_A,cyc_loss_B,tot_cyc_loss = this_val_losses
                 showState({"G1_loss":G1_loss,"G2_loss":G2_loss,"DA_loss":DA_loss,"DB_loss":DB_loss,"cyc_loss_A":cyc_loss_A,"cyc_loss_B":cyc_loss_B,"tot_cyc_loss":tot_cyc_loss})
+
+                resA,resB=self.eval_result(val_ds)
+
+                show("Val imgA evaluate:")
+                showState(resA)
+
+                show("Val imgB evaluate:")
+                showState(resB)
 
                 self.save_checkpoint(step,G1_loss+G2_loss)
 
@@ -398,7 +414,7 @@ class Cycgan_pet:
 
 
 if __name__ == '__main__':
-    G_CH, D = Generator_CH_Con(), Discriminator()
+    G_CH, D = Generator_CH_Res(), Discriminator()
     cyc=Cycgan_pet()
     G_CH.summary(line_length=120)
     D.summary(line_length=120)

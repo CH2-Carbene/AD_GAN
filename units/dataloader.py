@@ -6,7 +6,7 @@ import numpy as np
 from .prep import normalize
 import tensorflow as tf
 
-def load_np_data(filename,load_mods=["T1","FA"],argu=False):
+def load_np_data(filename,load_mods=["T1","FA"],argu=False,select_shape=(128,128,128)):
     # st=(17, 26, 5)
     # ed=(-18, -22, -30)
     if type(filename)!=str:
@@ -15,15 +15,16 @@ def load_np_data(filename,load_mods=["T1","FA"],argu=False):
     data=np.load(filename,mmap_mode="r")
     imgs=np.array([data[md.decode()if type(md)!=str else md]for md in load_mods])
     # data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
-    if argu:
-        imgs=random_jitter(imgs,only_select=True)
+    if argu==False:
+        imgs=random_jitter(imgs,only_select=True,select_shape=select_shape)
     else:
-        imgs=random_jitter(imgs,only_select=False)
+        imgs=random_jitter(imgs,only_select=False,select_shape=select_shape)
+    
     # x,y=np.pad(x,((16,16),(0,0),(16,16))),np.pad(y,((16,16),(0,0),(16,16)))
     # mask=(x!=0)&(y!=0)
     # x=x*mask;y=y*mask
     # if GAN_DIRECT=="FA-T1":x,y=y,x
-    return [tf.convert_to_tensor(img)[...,tf.newaxis] for img in imgs]
+    return [tf.convert_to_tensor(normalize(img))[...,tf.newaxis] for img in imgs]
 
 
 def load_img(img_file):
@@ -37,17 +38,41 @@ def load_img(img_file):
 
 def load_subject(img_file_dir,T1_name="T1.nii.gz",others_name=["FA.nii.gz"]):
     '''Load paired img from dir'''
-    st=(17, 26, 5)
-    ed=(-18, -22, -30)
+    # st=(17, 26, 5)
+    # ed=(-18, -22, -30)
     T1_img=load_img(f"{img_file_dir}/{T1_name}")
     others_img=[load_img(f"{img_file_dir}/{oi_name}")for oi_name in others_name]
     for oi in others_img:
         oi[T1_img==0]=0
-    T1_img=normalize(T1_img).astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+    T1_img=normalize(T1_img).astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
     for i in range(len(others_img)):
         # others_img[i]=normalize(others_img[i]).astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         
-        others_img[i]=others_img[i].astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        others_img[i]=others_img[i].astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        if others_name[i]=="T2.nii.gz":
+            others_img[i]=normalize(others_img[i])
+        if others_name[i]=="FA.nii.gz":
+            others_img[others_img[i]>1.]=1.
+    res={"T1":T1_img}
+    for i in range(len(others_name)):
+        res[others_name[i][:others_name[i].find('.')]]=others_img[i]
+    # if input_img_name=="T1.nii.gz":input_img[real_img==0]=0
+    # else:real_img[input_img==0]=0
+    return res
+
+def load_subject_uncut(img_file_dir,T1_name="T1.nii.gz",others_name=["FA.nii.gz"]):
+    '''Load paired img from dir'''
+    # st=(17, 26, 5)
+    # ed=(-18, -22, -30)
+    T1_img=load_img(f"{img_file_dir}/{T1_name}")
+    others_img=[load_img(f"{img_file_dir}/{oi_name}")for oi_name in others_name]
+    for oi in others_img:
+        oi[T1_img==0]=0
+    T1_img=normalize(T1_img).astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+    for i in range(len(others_img)):
+        # others_img[i]=normalize(others_img[i]).astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        
+        others_img[i]=others_img[i].astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         if others_name[i]=="T2.nii.gz":
             others_img[i]=normalize(others_img[i])
         if others_name[i]=="FA.nii.gz":

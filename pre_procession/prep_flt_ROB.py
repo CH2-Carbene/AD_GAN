@@ -43,8 +43,9 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"mv t1_n4correct.nii.gz t1_ori.nii.gz",name="0_getfile")
     sh(f"mv b0_corrected_Tmean.nii.gz b0.nii.gz",name="0_getfile")
     
-    sh(f"bet t1_ori.nii.gz t1_ori_brain.nii.gz -R -f 0.4 -g 0 -m",name="1_bet_T1")
+    sh(f"/public_bme/data/gujch/sh/ROBEX/runROBEX.sh t1_ori.nii.gz t1_ori_brain.nii.gz",name="1_bet_T1")
     sh(f"bet b0.nii.gz b0_brain.nii.gz -R -f 0.2 -g 0 -m",name="1_bet_b0")
+    # echospacing: 
     sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
 
     sh(f"flirt -in t1_ori_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 7",name="3_flirt_ACPC")

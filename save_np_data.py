@@ -2,11 +2,11 @@ import os
 # import tensorflow as tf
 import numpy as np
 import multiprocessing
-from units.dataloader import load_subject
+from units.dataloader import load_subject, load_subject_uncut
 # ,load_image_train,load_image_test
 
-DATAPATH = "datasets/brainmap/paired"
-NEWPATH="datasets/brainmap/npdata"
+DATAPATH = "/public_bme/data/gujch/brainmap/paired"
+NEWPATH="/public_bme/data/gujch/brainmap/npdata"
 # if DEBUG:data=data[:10]
 # show(data)
 # def load_prep_image(image_dir,direct="T1_to_FA"):
@@ -29,7 +29,7 @@ NEWPATH="datasets/brainmap/npdata"
 
 def prep_data(data):
     try:
-        ds=load_subject(f"{DATAPATH}/{data}",T1_name="T1.nii.gz",others_name=["FA.nii.gz","WM.nii.gz"])
+        ds=load_subject_uncut(f"{DATAPATH}/{data}",T1_name="T1.nii.gz",others_name=["FA.nii.gz","WM.nii.gz"])
         np.savez(f"{NEWPATH}/{data}",**ds)
         print(f"{data} finish!")
     except Exception as e:

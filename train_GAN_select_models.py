@@ -36,7 +36,7 @@ BATCH_SIZE = args.batch_size
 EPOCHES = args.epoches
 MODEL_PATH = args.model_path
 ARGU = args.argument
-
+patch_shape=(128,128,128)
 
 # %%
 # reload(GAN)
@@ -44,19 +44,8 @@ load_mods = ["T1", "FA"]
 NEWPATH = "datasets/brainmap/npdata"
 data = [f"{NEWPATH}/{img}"for img in os.listdir(NEWPATH)]
 
-demo = np.load(data[3])
-t1, fa = demo[load_mods[0]], demo[load_mods[1]]
-# t1[fa==0]=0
-visualize([t1, fa], save_path="demo/paired.png")
-
 # %%
 
-t1_arg, fa_arg = load_np_data(data[0], load_mods, ARGU)
-# print(t1_arg.shape)
-# t1_arg,fa_arg=load_image_train(t1_arg,fa_arg)#,[Rotation3D(max_rate=np.pi/2)])
-visualize([t1_arg[..., 0], fa_arg[..., 0]])
-np.save("demo/t1_arg", t1_arg)
-np.save("demo/fa_arg", fa_arg)
 
 # %%
 data = [f"{NEWPATH}/{img}"for img in os.listdir(NEWPATH)]
@@ -73,17 +62,24 @@ show(f"Test len: {len(test)}")
 # %%
 # The facade training set consist of 400 images
 
-BUFFER_SIZE = 400
+t1_arg, fa_arg = load_np_data(val[0], load_mods, ARGU)
+# print(t1_arg.shape)
+# t1_arg,fa_arg=load_image_train(t1_arg,fa_arg)#,[Rotation3D(max_rate=np.pi/2)])
+visualize([t1_arg[..., 0], fa_arg[..., 0]])
+np.save("demo/t1_arg", t1_arg)
+np.save("demo/fa_arg", fa_arg)
+
+BUFFER_SIZE = 200
 # The batch size of 1 produced better results for the U-Net in the original pix2pix experiment
 # st_range=np.array((227, 272, 227))-np.array((128,128,128))
 
 
 def train_load(filename): return tf.numpy_function(func=load_np_data, inp=[
-    filename, load_mods, ARGU], Tout=(tf.float32, tf.float32))
+    filename, load_mods, ARGU,patch_shape], Tout=(tf.float32, tf.float32))
 
 
 def test_load(filename): return tf.numpy_function(func=load_np_data, inp=[
-    filename, load_mods, False], Tout=(tf.float32, tf.float32))
+    filename, load_mods, False,patch_shape], Tout=(tf.float32, tf.float32))
 
 
 def get_train_ds(train):
