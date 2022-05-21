@@ -60,9 +60,8 @@ K_INITER = "he_normal"
 #     return Model(inputs=inputs, outputs=last, name='Classify')
 
 #conv3d
-K_INITER="he_normal"
 def Conv3D_U(channel):
-    return layers.Conv3D(channel,3,padding='same',kernel_initializer=K_INITER)
+    return layers.Conv3D(channel,3,padding='same')
 
 #BN+activate(relu)
 def BN_AC():
@@ -81,10 +80,10 @@ def Conv3D_BN(channel,dp_rate=0):
 
 #Conv3D_Pooling1
 def Conv3D_P1(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2),kernel_initializer=K_INITER)
+    return layers.Conv3D(channel,3,strides=(2,2,2))
 #Conv3D_Pooling2
 def Conv3D_P2(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same',kernel_initializer=K_INITER)
+    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same')
 #Conv3D_Pooling+BatchNormalization
 # why dropout before BatchNormalization?
 def Conv3D_PBN(channel,dp_rate=0):
@@ -108,13 +107,10 @@ def CNN3D(cls_num=2,mods=2):
     '''
     # is_reg=True if cls_num==1 else False
     def conv_layers(inputs):
-        P1=Sequential([
-            Conv3D_BN(10),
-            Conv3D_P2(10)
-        ])#,name="Block0")
-        P2=Sequential([
+            
+        L0=Sequential([
             Conv3D_BN(15),
-            Conv3D_P2(15)
+            Conv3D_P1(15)
         ])#,name="Block0")
 
         L1=Sequential([
@@ -138,26 +134,17 @@ def CNN3D(cls_num=2,mods=2):
         ])#,name="Block3")
         R3=Conv3D_P2(25)
         M3=Merge()
-
+        
         L4=Sequential([
             BN_AC(),
-            Conv3D_PBN(45,0.2),
-            Conv3D_U(45)
-        ])#,name="Block3")
-        R4=Conv3D_P2(35)
-        M4=Merge()
-
-        L5=Sequential([
-            BN_AC(),
-            layers.Conv3D(40,3,padding='valid',kernel_initializer=K_INITER),
-            layers.Conv3D(40,3,padding='same',kernel_initializer=K_INITER)
+            layers.Conv3D(30,3,padding='valid'),
+            layers.Conv3D(30,3,padding='valid')
         ])#,name="Block4")
 
-        p1_out=P1(inputs)
-        p2_out=P2(p1_out)
+        l0_out=L0(inputs)
 
-        l1_x=L1(p2_out)
-        l1_y=p2_out
+        l1_x=L1(l0_out)
+        l1_y=l0_out
         l1_out=M1([l1_x,l1_y])
 
         l2_x=L2(l1_out)
@@ -169,11 +156,7 @@ def CNN3D(cls_num=2,mods=2):
         l3_out=M3([l3_x,l3_y])
 
         l4_x=L4(l3_out)
-        l4_y=R4(l3_out)
-        l4_out=M4([l4_x,l4_y])
-
-        l5_x=L5(l4_out)
-        outputs=layers.Flatten()(l5_x)
+        outputs=layers.Flatten()(l4_x)
         return outputs
 
     def line_layers(inputs):
@@ -188,8 +171,8 @@ def CNN3D(cls_num=2,mods=2):
     CLF=layers.Softmax()
 
 ### network constructure
-    inputs = Input(shape=(mods,128,128,128,1), dtype='float32')
-    # print(inputs[:,0,...].shape)
+    inputs = Input(shape=(mods,42,50,42,1), dtype='float32')
+    
     
     fe_list=[conv_layers(inputs[:,mi,...])for mi in range(mods)]
     lfc=Merge()(fe_list)
@@ -280,8 +263,7 @@ class CNN_clf:
         self.log_dir = "logs/" + \
             f"CLF_" + \
             datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.path = f"{self.log_dir}/Patch_clf/"
-        self.BUFFER_SIZE=200
+        self.path = f"{self.log_dir}/Pix2pix"
 
     def split_train_ds(ds,batch_size=32):
         '''
@@ -331,8 +313,7 @@ class CNN_clf:
         for i,mi in enumerate(self.model):
             mi.save(f"{save_path}/c_{i}.h5")
 
-
-    def train(self,train_ds:tf.data.Dataset,val_ds:tf.data.Dataset,batch_size=32,epoches=200):
+    def train(self,train_ds,val_ds,batch_size=32,epoches=200):
         # print(tf.compat.v1.executing_eagerly())
 
         # for i,j in tdss[0]:
@@ -343,20 +324,8 @@ class CNN_clf:
         # self.model[0].fit(tx,ty)
         # print("Pass!")
         # print(self.model[0].summary())
+        tds,vds=CNN_clf.split_train_ds(train_ds,batch_size=batch_size),CNN_clf.split_test_ds(val_ds,batch_size=batch_size)
 
-        # tds,vds=CNN_clf.split_train_ds(train_ds,batch_size=batch_size),CNN_clf.split_test_ds(val_ds,batch_size=batch_size)
-        tds=train_ds
-
-        tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
-        tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
-        tds=tds.batch(batch_size)
-
-        vds= val_ds
-        vds=vds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
-        vds=vds.batch(batch_size)
-        # .unbatch().batch(batch_size)
-        # print(tds.as_np_iterator().shape)
-        # print(vds.as_np_iterator().shape)
         print("start training...")
         for e in range(epoches):
             print(f"Epoch {e}:")
@@ -364,7 +333,6 @@ class CNN_clf:
                 # print(tdss[i])
             model=self.model[0]
             model.fit(tds,validation_data=vds)
-            self.test(val_ds,batch_size=batch_size)
             self.save_checkpoint(e)
         # y_predit=[self.model[i].predict(vdss[i])for i in range(27)]
         self.test(val_ds,batch_size=batch_size)
@@ -372,21 +340,16 @@ class CNN_clf:
 
     def test(self,test_ds,batch_size=32):
         tdss=[]
-        label=list(test_ds.map(lambda img,lab:lab[0]).as_numpy_iterator())
-        # for pat in test_ds:
-            # for i in range(27):
-
-            
-        for i in range(27):
-            tdss.append(test_ds.map(lambda img,lab:img[i]).batch(batch_size))
+        label=list(test_ds.map(lambda imgs,label:label).as_numpy_iterator())
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    tdss.append(test_ds.map(lambda imgs,label:(imgs[:,i*21:i*21+42,j*25:j*25+50,k*21:k*21+42,tf.newaxis],label)).batch(batch_size))
         # tds=tds.batch(batch_size)
         n=len(label)
         vote=np.zeros((n,2),dtype=np.int32)
         for i in range(27):
             model=self.model[0]
-
-            # res=model(list(tdss[i].as_numpy_iterator())[0])
-            # print(res)
             y_predit=model.predict(tdss[i])
             tot=metrics.sparse_categorical_accuracy(label,y_predit)
             
@@ -470,13 +433,7 @@ class CNN_clf:
 #     for fname in data:
 
 
-if __name__ == '__main__':
-    model=CNN3D(2,3)
-    # tryds=np.zeros((10,3,128,128,128,1),dtype=(np.float32))
-    # trylb=np.zeros((10,1),dtype=(np.float32))
-    # model.fit(x=[tryds],y=[trylb])
-    print(model.summary(120))
-    
+# if __name__ == '__main__':
 #     DATA_ORI="/public_bme/data/gujch/ZS_t1_full/05_ZS/result"
 #     PATCH_ORI="/public_bme/data/gujch/ZS_t1_full/patches"
 #     CSV_PATH="/public_bme/data/gujch/ZS_t1_full/Diagnosis Information.csv"
@@ -508,12 +465,11 @@ if __name__ == '__main__':
 #     # print("NPDS: ",npds.shape)
 
     
-    # model=CNN3D()
-    # print(model.summary())
+#     # model=CNN3D()
 #     # np.array(list(train_ds.as_numpy_iterator()))
     
 
-   
+#     # print(model.summary())
 
 #     # model.fit(npds,nplb,batch_size=4)
 

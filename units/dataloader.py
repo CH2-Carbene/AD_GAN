@@ -38,21 +38,21 @@ def load_img(img_file):
 
 def load_subject(img_file_dir,T1_name="T1.nii.gz",others_name=["FA.nii.gz"]):
     '''Load paired img from dir'''
-    # st=(17, 26, 5)
-    # ed=(-18, -22, -30)
+    st=(17, 26, 5)
+    ed=(-18, -22, -30)
     T1_img=load_img(f"{img_file_dir}/{T1_name}")
     others_img=[load_img(f"{img_file_dir}/{oi_name}")for oi_name in others_name]
     for oi in others_img:
         oi[T1_img==0]=0
-    T1_img=normalize(T1_img).astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+    T1_img=normalize(T1_img).astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
     for i in range(len(others_img)):
         # others_img[i]=normalize(others_img[i]).astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         
-        others_img[i]=others_img[i].astype("float32")#[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
+        others_img[i]=others_img[i].astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         if others_name[i]=="T2.nii.gz":
             others_img[i]=normalize(others_img[i])
         if others_name[i]=="FA.nii.gz":
-            others_img[others_img[i]>1.]=1.
+            others_img[i][others_img[i]>1.]=1.
     res={"T1":T1_img}
     for i in range(len(others_name)):
         res[others_name[i][:others_name[i].find('.')]]=others_img[i]
@@ -76,7 +76,7 @@ def load_subject_uncut(img_file_dir,T1_name="T1.nii.gz",others_name=["FA.nii.gz"
         if others_name[i]=="T2.nii.gz":
             others_img[i]=normalize(others_img[i])
         if others_name[i]=="FA.nii.gz":
-            others_img[others_img[i]>1.]=1.
+            others_img[i][others_img[i]>1.]=1.
     res={"T1":T1_img}
     for i in range(len(others_name)):
         res[others_name[i][:others_name[i].find('.')]]=others_img[i]

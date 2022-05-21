@@ -101,7 +101,7 @@ def Static_select(tgsize=(128,128,128)):
     def static_select(data):
         # print(data.shape)
         st_range=np.array(data[0].shape)-select_size
-        st=np.random.randint(st_range)
+        st=np.random.randint(st_range+1)
         ed=st+select_size
         data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         # mask=(x!=0)&(y!=0)
@@ -115,8 +115,15 @@ def Random_select(tgsize=(128,128,128),low=0.8,high=1.2):
 
     def random_select(data):
         # print(data.shape)
+        # print(data[0].shape)
         st_range=np.array(data[0].shape)-select_size
-        st=np.random.randint(st_range)
+        pw=(st_range<0)*(-st_range)
+        pw=((0,0),)+tuple(((pw[i]+1)//2,(pw[i]+1)//2) for i in range(len(pw)))
+        # print("PW=",pw)
+        data=np.pad(data,pad_width=pw)
+        st_range=np.array(data[0].shape)-select_size
+        
+        st=np.random.randint(st_range+1)
         ed=st+tgsize_arr
         data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
         resized_data=[resize(img,tgsize)for img in data]
