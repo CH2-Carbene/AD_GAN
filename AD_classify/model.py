@@ -205,6 +205,20 @@ def CNN3D(cls_num=2,mods=2):
     model=Model(inputs=inputs, outputs=sfx)
     model.compile(optimizer=opt,loss=loss_func,metrics=metric)
     return model
+
+from resnet3d import Resnet3DBuilder
+def Resnet3D(cls_num=2,mods=2):
+    inputs = Input(shape=(mods,128,128,128,1), dtype='float32')
+    x=tf.reshape(inputs,[-1,128,128,128,mods])
+
+    loss_func=losses.SparseCategoricalCrossentropy()
+    metric=metrics.SparseCategoricalAccuracy()
+    outputs = Resnet3DBuilder.build_resnet_18((128, 128, 128, mods), 2)(x)
+    model=Model(inputs=inputs,outputs=outputs)
+    model.compile(optimizer='adam',
+                loss=loss_func,
+                metrics=metric)
+    return model
 import datetime,os
 # class Patch_clf:
     
@@ -275,13 +289,13 @@ import datetime,os
         # return acc
 class CNN_clf:
     
-    def __init__(self,mods=2):
-        self.model=[CNN3D(2,mods)for i in range(1)]
-        self.log_dir = "logs/" + \
-            f"CLF_" + \
-            datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    def __init__(self,mods=["T1"],model="Resnet_3D"):
+        # mods=len()
+        Model=CNN3D if model=="CNN_3D" else Resnet3D
+        self.model=[Model(2,len(mods))for i in range(1)]
+        self.log_dir = "logs/" + f"CLF_{'_'.join(mods)}_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path = f"{self.log_dir}/Patch_clf/"
-        self.BUFFER_SIZE=200
+        self.BUFFER_SIZE=800
 
     def split_train_ds(ds,batch_size=32):
         '''
@@ -471,7 +485,7 @@ class CNN_clf:
 
 
 if __name__ == '__main__':
-    model=CNN3D(2,3)
+    model=Resnet3D(2,4)
     # tryds=np.zeros((10,3,128,128,128,1),dtype=(np.float32))
     # trylb=np.zeros((10,1),dtype=(np.float32))
     # model.fit(x=[tryds],y=[trylb])

@@ -2,9 +2,11 @@ import numpy as np
 import tensorflow as tf
 from AD_classify.model import CNN_clf
 from units.prep import random_jitter
+from sys import argv
 # BUFFER_SIZE=20
 N_CPU=20
-LOAD_MODS=["T1","delta1","delta2","delta3"]
+DELTA_LIST=argv[1:]#["delta1","delta2","delta3"]
+LOAD_MODS=["T1"]+DELTA_LIST
 BUFFER_SIZE=200
 def load_np_data(dirname,load_mods=["T1"],argu=False,select_shape=(128,128,128)):
     # st=(17, 26, 5)
@@ -86,15 +88,18 @@ def prep_data(data,plist=None):
         raise Exception(f"{data} Failed: {e}\n")
 
 
-ROOT="/public_bme/data/gujch/ZS_t1_full/"
-# ROOT="datasets/ZS_t1_full/"
+# ROOT="/public_bme/data/gujch/ZS_t1_full/"
+ROOT="datasets/ZS_t1_full/"
 
 DATA_ORI=ROOT+"05_ZS/result/"
 PATCH_ORI=ROOT+"patches/"
 CSV_PATH=ROOT+"Diagnosis Information.csv"
 PATCH_SIZE=(128,128,128)
 PATCH_NUM=(3,3,3)
-MODEL_PATH="pet_cycgan"
+# MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda10.0_AdamOpt_CH_Res_20220517-021959/Pet_cyc/step_133400/"
+MODEL_PATH="logs/T1_FA_l=10/"
+
+# MODEL_PATH="pet_cycgan"
 
 def save_patch(ds,dst):
     img,label=ds["T1"],ds["label"]
@@ -145,7 +150,7 @@ def make_patch(src,dst,info):
 
 if __name__ == '__main__':
 
-    
+    print("Mods:","_".join(LOAD_MODS))
     df=pd.read_csv(CSV_PATH,dtype=str,keep_default_na=False)
     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
     data=make_patch(DATA_ORI,PATCH_ORI,CSV_PATH)
@@ -185,10 +190,10 @@ if __name__ == '__main__':
 
     # input()
     
-    clf=CNN_clf(len(LOAD_MODS))
+    clf=CNN_clf(LOAD_MODS)
     # clf.test(train_ds,32)
-    # clf.train(train_ds,val_ds,4,200)
-    clf.test(test_ds)
+    clf.train(train_ds,val_ds,32,200)
+    clf.test(test_ds,32)
     # m=CNN3D(2,2)
     # m.summary(line_length=120)
     
