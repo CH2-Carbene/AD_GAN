@@ -63,12 +63,12 @@ K_INITER = "he_normal"
 #conv3d
 K_INITER="he_normal"
 def Conv3D_U(channel):
-    return layers.Conv3D(channel,3,padding='same')
+    return layers.Conv3D(channel,3,padding='same',kernel_initializer=K_INITER)
 
 #BN+activate(relu)
 def BN_AC():
     return Sequential([
-        layers.BatchNormalization(),
+        InstanceNormalization(),
         layers.Activation("relu"),
     ])
 
@@ -82,10 +82,10 @@ def Conv3D_BN(channel,dp_rate=0):
 
 #Conv3D_Pooling1
 def Conv3D_P1(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2))
+    return layers.Conv3D(channel,3,strides=(2,2,2),kernel_initializer=K_INITER)
 #Conv3D_Pooling2
 def Conv3D_P2(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same')
+    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same',kernel_initializer=K_INITER)
 #Conv3D_Pooling+BatchNormalization
 # why dropout before BatchNormalization?
 def Conv3D_PBN(channel,dp_rate=0):
@@ -150,8 +150,8 @@ def CNN3D_conc(cls_num=2,mods=2):
 
         L5=Sequential([
             BN_AC(),
-            layers.Conv3D(30,3,padding='valid'),
-            layers.Conv3D(30,3,padding='valid')
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER)
         ])#,name="Block4")
 
         p1_out=P1(inputs)
@@ -257,12 +257,11 @@ def CNN3D(cls_num=2,mods=2):
 
         L5=Sequential([
             BN_AC(),
-            layers.Conv3D(30,3,padding='valid'),
-            layers.Conv3D(30,3,padding='valid')
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER)
         ])#,name="Block4")
 
-        # p1_out=P2(inputs)
-        p1_out=layers.AveragePooling3D()(inputs)
+        p1_out=P1(inputs)
         p2_out=P2(p1_out)
 
         l1_x=L1(p2_out)
@@ -324,8 +323,8 @@ def Resnet3D(cls_num=2,mods=2):
 
     loss_func=losses.SparseCategoricalCrossentropy()
     metric=metrics.SparseCategoricalAccuracy()
-    x=Conv3D_P2(3)(x)
-    resnet_mod=Resnet3DBuilder.small_build((128, 128, 128, mods), 2, "basic_block",
+    x=layers.AveragePooling3D()(x)
+    resnet_mod=Resnet3DBuilder.small_build((64, 64, 64, mods), 2, "basic_block",
                                      [2, 2, 2, 2], reg_factor=1e-4,start_filters=16)
     outputs = resnet_mod(x)
     model=Model(inputs=inputs,outputs=outputs)
@@ -432,10 +431,10 @@ import datetime,os
         # return acc
 class CNN_clf:
     
-    def __init__(self,mods=["T1"],model="CNN3D"):
+    def __init__(self,mods=["T1"],model="Resnet"):
         # mods=len()
         Model=CNN3D if model=="CNN3D" else Resnet3D if model=="Resnet" else Effnet3D
-        self.model=[Model(2,len(mods))for i in range(27)]
+        self.model=[Model(2,len(mods))for i in range(1)]
         self.log_dir = "logs/" + f"CLF_{'_'.join(mods)}_{model}_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path = f"{self.log_dir}/Patch_clf/"
         self.BUFFER_SIZE=100
@@ -503,44 +502,32 @@ class CNN_clf:
 
         # tds,vds=CNN_clf.split_train_ds(train_ds,batch_size=batch_size),CNN_clf.split_test_ds(val_ds,batch_size=batch_size)
         tds=train_ds
-        vds= val_ds
 
-        tdss=[]
-        for i in range(27):
-            tdsi=tds.map(lambda img,lab:(img[i],lab[i]))
-            tdsi=tdsi.shuffle(self.BUFFER_SIZE,seed=114514)
-            tdsi=tdsi.batch(batch_size)
-
-            vdsi=vds.map(lambda img,lab:(img[i],lab[i]))
-            vdsi=vdsi.batch(batch_size)
-
-            print(f"start training patch {i}...")
-            model=self.model[i]
-            model.fit(tdsi,epochs=epoches,validation_data=vdsi)
-        # tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
+        tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         
         # tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         # tds=tds.repeat(8)
-        # tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
-        # tds=tds.batch(batch_size)
+        tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
+        tds=tds.batch(batch_size)
 
-        
-        
+        vds= val_ds
+        vds=vds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
+        vds=vds.batch(batch_size)
         # .unbatch().batch(batch_size)
         # print(tds.as_np_iterator().shape)
         # print(vds.as_np_iterator().shape)
-        
-        # cb = [
-        #     tf.keras.callbacks.ModelCheckpoint(
-        #         filepath=self.path+"/checkpoints/loss_{loss:.4f}", save_freq=10
-        #     )
-        # ]
+        print("start training...")
+        cb = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=self.path+"/checkpoints/loss_{loss:.4f}", save_freq=10
+            )
+        ]
         # for e in range(epoches):
         # print(f"Epoch {e}:")
                 # print("I: ",i)
                 # print(tdss[i])
-        # model=self.model[0]
-        # model.fit(tds,epochs=epoches,validation_data=vds)
+        model=self.model[0]
+        model.fit(tds,epochs=epoches,validation_data=vds)
             # self.test(val_ds,batch_size=batch_size)
         self.save_checkpoint(epoches)
         # y_predit=[self.model[i].predict(vdss[i])for i in range(27)]
@@ -560,7 +547,7 @@ class CNN_clf:
         n=len(label)
         vote=np.zeros((n,2),dtype=np.int32)
         for i in range(27):
-            model=self.model[i]
+            model=self.model[0]
 
             # res=model(list(tdss[i].as_numpy_iterator())[0])
             # print(res)
@@ -645,20 +632,14 @@ class CNN_clf:
 #     df=pd.read_csv(CSV_PATH,dtype=str,keep_default_na=False)
 #     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
 #     for fname in data:
-# from resnet3d import myResnet3DBuilder
+
 
 if __name__ == '__main__':
-    model=Resnet3D(2,2)
-    # model=Resnet3DBuilder.build_resnet_18((64, 64, 64, 3), 2)
-    # model=Resnet3DBuilder.build_resnet_50((64, 64, 64, 3), 2)
-    model=Resnet3DBuilder.small_build((128, 128, 128, 3), 2, "basic_block",
-                                     [2, 2, 2, 2], reg_factor=1e-4,start_filters=16)
-    
+    model=Effnet3D(2,2)
     # tryds=np.zeros((10,3,128,128,128,1),dtype=(np.float32))
     # trylb=np.zeros((10,1),dtype=(np.float32))
     # model.fit(x=[tryds],y=[trylb])
     print(model.summary(120))
-    tf.keras.utils.plot_model(model,to_file="AD_classify/myResnet.png",show_shapes=True)
     
 #     DATA_ORI="/public_bme/data/gujch/ZS_t1_full/05_ZS/result"
 #     PATCH_ORI="/public_bme/data/gujch/ZS_t1_full/patches"
