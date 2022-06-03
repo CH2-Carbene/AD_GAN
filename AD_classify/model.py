@@ -63,12 +63,12 @@ K_INITER = "he_normal"
 #conv3d
 K_INITER="he_normal"
 def Conv3D_U(channel):
-    return layers.Conv3D(channel,3,padding='same')
+    return layers.Conv3D(channel,3,padding='same',kernel_initializer=K_INITER)
 
 #BN+activate(relu)
 def BN_AC():
     return Sequential([
-        layers.BatchNormalization(),
+        InstanceNormalization(),
         layers.Activation("relu"),
     ])
 
@@ -82,10 +82,10 @@ def Conv3D_BN(channel,dp_rate=0):
 
 #Conv3D_Pooling1
 def Conv3D_P1(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2))
+    return layers.Conv3D(channel,3,strides=(2,2,2),kernel_initializer=K_INITER)
 #Conv3D_Pooling2
 def Conv3D_P2(channel):
-    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same')
+    return layers.Conv3D(channel,3,strides=(2,2,2),padding='same',kernel_initializer=K_INITER)
 #Conv3D_Pooling+BatchNormalization
 # why dropout before BatchNormalization?
 def Conv3D_PBN(channel,dp_rate=0):
@@ -150,8 +150,8 @@ def CNN3D_conc(cls_num=2,mods=2):
 
         L5=Sequential([
             BN_AC(),
-            layers.Conv3D(30,3,padding='valid'),
-            layers.Conv3D(30,3,padding='valid')
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER)
         ])#,name="Block4")
 
         p1_out=P1(inputs)
@@ -257,12 +257,11 @@ def CNN3D(cls_num=2,mods=2):
 
         L5=Sequential([
             BN_AC(),
-            layers.Conv3D(30,3,padding='valid'),
-            layers.Conv3D(30,3,padding='valid')
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER)
         ])#,name="Block4")
 
-        # p1_out=P2(inputs)
-        p1_out=layers.AveragePooling3D()(inputs)
+        p1_out=P1(inputs)
         p2_out=P2(p1_out)
 
         l1_x=L1(p2_out)
@@ -315,6 +314,111 @@ def CNN3D(cls_num=2,mods=2):
     model=Model(inputs=inputs, outputs=sfx)
     model.compile(optimizer=opt,loss=loss_func,metrics=metric)
     return model
+
+
+def CNN3D_64x(cls_num=2,mods=2):
+    ''' Return a 3D-CNN model for classification/regression.
+    input shape:(64,64,64,1)
+    output shape:(cls_num)
+    Args:
+      cls_num: int, should be >=1. When cls_num is 1, it's a regression model.
+    '''
+    # is_reg=True if cls_num==1 else False
+    def conv_layers(inputs):
+        P1=Sequential([
+            Conv3D_BN(15),
+            Conv3D_P2(15)
+        ])#,name="Block0")
+
+        L1=Sequential([
+            Conv3D_BN(15,0.2),
+            Conv3D_U(15)
+        ])#,name="Block1")
+        M1=Merge()
+
+        L2=Sequential([
+            BN_AC(),
+            Conv3D_PBN(25,0.2),
+            Conv3D_U(25)
+        ])#,name="Block2")
+        R2=Conv3D_P2(15)
+        M2=Merge()
+
+        L3=Sequential([
+            BN_AC(),
+            Conv3D_PBN(35,0.2),
+            Conv3D_U(35)
+        ])#,name="Block3")
+        R3=Conv3D_P2(25)
+        M3=Merge()
+
+        # L4=Sequential([
+        #     BN_AC(),
+        #     Conv3D_PBN(45,0.2),
+        #     Conv3D_U(45)
+        # ])#,name="Block3")
+        # R4=Conv3D_P2(35)
+        # M4=Merge()
+
+        L5=Sequential([
+            BN_AC(),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER),
+            layers.Conv3D(30,3,padding='valid',kernel_initializer=K_INITER)
+        ])#,name="Block4")
+
+        p1_out=P1(inputs)
+        # p2_out=P2(p1_out)
+
+        l1_x=L1(p1_out)
+        l1_y=p1_out
+        l1_out=M1([l1_x,l1_y])
+
+        l2_x=L2(l1_out)
+        l2_y=R2(l1_out)
+        l2_out=M2([l2_x,l2_y])
+
+        l3_x=L3(l2_out)
+        l3_y=R3(l2_out)
+        l3_out=M3([l3_x,l3_y])
+
+        # l4_x=L4(l3_out)
+        # l4_y=R4(l3_out)
+        # l4_out=M4([l4_x,l4_y])
+
+        l5_x=L5(l3_out)
+        outputs=layers.AveragePooling3D()(l5_x)
+        outputs=layers.Flatten()(outputs)
+        return outputs
+
+    def line_layers(inputs):
+
+        FC=Sequential([
+            Liner(300,'relu'),
+            layers.Dropout(0.2),
+            Liner(50,'relu'),
+            Liner(cls_num,"softmax")
+        ])#,name="FC")
+        return FC(inputs)
+    # CLF=layers.Softmax()
+
+### network constructure
+    inputs = Input(shape=(mods,64,64,64,1), dtype='float32')
+    # print(inputs[:,0,...].shape)
+    
+    comb=tf.transpose(inputs[...,0],[0,2,3,4,1])
+    lfc=conv_layers(comb)
+    sfx=line_layers(lfc)
+    # lfc=Merge()(fe_list)
+    # print(lfc.shape)
+    
+
+    opt=optimizers.Adadelta()
+    loss_func=losses.SparseCategoricalCrossentropy()
+    metric=metrics.SparseCategoricalAccuracy()
+
+    model=Model(inputs=inputs, outputs=sfx)
+    model.compile(optimizer=opt,loss=loss_func,metrics=metric)
+    return model
 #%%
 from resnet3d import Resnet3DBuilder
 def Resnet3D(cls_num=2,mods=2):
@@ -324,8 +428,8 @@ def Resnet3D(cls_num=2,mods=2):
 
     loss_func=losses.SparseCategoricalCrossentropy()
     metric=metrics.SparseCategoricalAccuracy()
-    x=Conv3D_P2(3)(x)
-    resnet_mod=Resnet3DBuilder.small_build((128, 128, 128, mods), 2, "basic_block",
+    x=layers.AveragePooling3D()(x)
+    resnet_mod=Resnet3DBuilder.small_build((64, 64, 64, mods), 2, "basic_block",
                                      [2, 2, 2, 2], reg_factor=1e-4,start_filters=16)
     outputs = resnet_mod(x)
     model=Model(inputs=inputs,outputs=outputs)
@@ -432,10 +536,10 @@ import datetime,os
         # return acc
 class CNN_clf:
     
-    def __init__(self,mods=["T1"],model="CNN3D"):
+    def __init__(self,mods=["T1"],model="Resnet"):
         # mods=len()
-        Model=CNN3D if model=="CNN3D" else Resnet3D if model=="Resnet" else Effnet3D
-        self.model=[Model(2,len(mods))for i in range(27)]
+        Model=CNN3D if model=="CNN3D" else CNN3D_64x if model=="CNN3D_64x" else Resnet3D if model=="Resnet" else Effnet3D
+        self.model=[Model(2,len(mods))for i in range(1)]
         self.log_dir = "logs/" + f"CLF_{'_'.join(mods)}_{model}_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path = f"{self.log_dir}/Patch_clf/"
         self.BUFFER_SIZE=100
@@ -488,6 +592,11 @@ class CNN_clf:
         for i,mi in enumerate(self.model):
             mi.save(f"{save_path}/c_{i}.h5")
 
+    def load_checkpoint(self, load_path, step=200):
+        save_path = f"{load_path}/step_{step+1:03d}"
+
+        for i,mi in enumerate(self.model):
+            mi.load_weights(f"{save_path}/c_{i}.h5")
 
     def train(self,train_ds:tf.data.Dataset,val_ds:tf.data.Dataset,batch_size=32,epoches=200):
         # print(tf.compat.v1.executing_eagerly())
@@ -503,44 +612,32 @@ class CNN_clf:
 
         # tds,vds=CNN_clf.split_train_ds(train_ds,batch_size=batch_size),CNN_clf.split_test_ds(val_ds,batch_size=batch_size)
         tds=train_ds
-        vds= val_ds
 
-        tdss=[]
-        for i in range(27):
-            tdsi=tds.map(lambda img,lab:(img[i],lab[i]))
-            tdsi=tdsi.shuffle(self.BUFFER_SIZE,seed=114514)
-            tdsi=tdsi.batch(batch_size)
-
-            vdsi=vds.map(lambda img,lab:(img[i],lab[i]))
-            vdsi=vdsi.batch(batch_size)
-
-            print(f"start training patch {i}...")
-            model=self.model[i]
-            model.fit(tdsi,epochs=epoches,validation_data=vdsi)
-        # tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
+        tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         
         # tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         # tds=tds.repeat(8)
-        # tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
-        # tds=tds.batch(batch_size)
+        tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
+        tds=tds.batch(batch_size)
 
-        
-        
+        vds= val_ds
+        vds=vds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
+        vds=vds.batch(batch_size)
         # .unbatch().batch(batch_size)
         # print(tds.as_np_iterator().shape)
         # print(vds.as_np_iterator().shape)
-        
-        # cb = [
-        #     tf.keras.callbacks.ModelCheckpoint(
-        #         filepath=self.path+"/checkpoints/loss_{loss:.4f}", save_freq=10
-        #     )
-        # ]
+        print("start training...")
+        cb = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=self.path+"/checkpoints/loss_{loss:.4f}", save_freq=10
+            )
+        ]
         # for e in range(epoches):
         # print(f"Epoch {e}:")
                 # print("I: ",i)
                 # print(tdss[i])
-        # model=self.model[0]
-        # model.fit(tds,epochs=epoches,validation_data=vds)
+        model=self.model[0]
+        model.fit(tds,epochs=epoches,validation_data=vds)
             # self.test(val_ds,batch_size=batch_size)
         self.save_checkpoint(epoches)
         # y_predit=[self.model[i].predict(vdss[i])for i in range(27)]
@@ -560,7 +657,7 @@ class CNN_clf:
         n=len(label)
         vote=np.zeros((n,2),dtype=np.int32)
         for i in range(27):
-            model=self.model[i]
+            model=self.model[0]
 
             # res=model(list(tdss[i].as_numpy_iterator())[0])
             # print(res)
@@ -645,20 +742,14 @@ class CNN_clf:
 #     df=pd.read_csv(CSV_PATH,dtype=str,keep_default_na=False)
 #     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
 #     for fname in data:
-# from resnet3d import myResnet3DBuilder
+
 
 if __name__ == '__main__':
-    model=Resnet3D(2,2)
-    # model=Resnet3DBuilder.build_resnet_18((64, 64, 64, 3), 2)
-    # model=Resnet3DBuilder.build_resnet_50((64, 64, 64, 3), 2)
-    model=Resnet3DBuilder.small_build((128, 128, 128, 3), 2, "basic_block",
-                                     [2, 2, 2, 2], reg_factor=1e-4,start_filters=16)
-    
+    model=CNN3D_64x(2,2)
     # tryds=np.zeros((10,3,128,128,128,1),dtype=(np.float32))
     # trylb=np.zeros((10,1),dtype=(np.float32))
     # model.fit(x=[tryds],y=[trylb])
     print(model.summary(120))
-    tf.keras.utils.plot_model(model,to_file="AD_classify/myResnet.png",show_shapes=True)
     
 #     DATA_ORI="/public_bme/data/gujch/ZS_t1_full/05_ZS/result"
 #     PATCH_ORI="/public_bme/data/gujch/ZS_t1_full/patches"
