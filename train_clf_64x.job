@@ -7,8 +7,8 @@
 #SBATCH --mem 50g
 #SBATCH --gres=gpu:1
 
-#SBATCH -o %j_stdout.log
-#SBATCH -e %j_stderr.log
+#SBATCH -o clf_64x_%j_stdout.log
+#SBATCH -e clf_64x_%j_stderr.log
 
 echo ${SLURM_JOB_NODELIST}
 echo start on $(date)

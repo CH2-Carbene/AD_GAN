@@ -91,15 +91,15 @@ def prep_data(data,plist=None):
 
 
 ROOT="/public_bme/data/gujch/ZS_t1_full/"
-ROOT="datasets/ZS_t1_full/"
+# ROOT="datasets/ZS_t1_full/"
 
 DATA_ORI=ROOT+"05_ZS/result/"
-PATCH_ORI=ROOT+"patches/"
+PATCH_ORI=ROOT+"patches_full/"
 CSV_PATH=ROOT+"Diagnosis Information.csv"
 PATCH_SIZE=(128,128,128)
 PATCH_NUM=(3,3,3)
 MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda10.0_AdamOpt_CH_Res_20220517-021959/Pet_cyc/step_133400/"
-MODEL_PATH="logs/T1_FA_l=10/"
+# MODEL_PATH="logs/T1_FA_l=10/"
 
 # MODEL_PATH="pet_cycgan"
 
