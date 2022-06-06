@@ -91,22 +91,23 @@ def prep_data(data,plist=None):
 
 
 ROOT="/public_bme/data/gujch/ZS_t1_full/"
-# ROOT="datasets/ZS_t1_full/"
+ROOT="datasets/ZS_t1_full/"
 
 DATA_ORI=ROOT+"05_ZS/result/"
-PATCH_ORI=ROOT+"patches_full/"
+PATCH_ORI=ROOT+"patches/"
+# PATCH_ORI=ROOT+"patches_full/"
 CSV_PATH=ROOT+"Diagnosis Information.csv"
 PATCH_SIZE=(128,128,128)
 PATCH_NUM=(3,3,3)
-MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda10.0_AdamOpt_CH_Res_20220517-021959/Pet_cyc/step_133400/"
-# MODEL_PATH="logs/T1_FA_l=10/"
+MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda20.0_AdamOpt_CH_NF_20220603-082200/Pet_cyc/step_40020/"
+MODEL_PATH="logs/T1_FA_healthy/"
 
 # MODEL_PATH="pet_cycgan"
 
 def save_patch(ds,dst):
     img,label=ds["T1"],ds["label"]
     step_size=(np.array(img.shape)-np.array(PATCH_SIZE))//(np.array(PATCH_NUM)-1)
-    cyc=Cycgan_pet(G_net="CH_Res")
+    cyc=Cycgan_pet(G_net="CH_NF")
     cyc.load_model(MODEL_PATH)
     os.makedirs(dst,exist_ok=True)
 
@@ -115,22 +116,27 @@ def save_patch(ds,dst):
             for k in range(3):
                 pat_id=i*9+j*3+k
                 # print(f"{dst}/patch_{pat_id}")
+                flag=0
                 if os.path.exists(f"{dst}/patch_{pat_id}.npz"):
-                    print(f"{dst}/patch_{pat_id}.npz exist, continue")
-                    continue
+                    try:
+                        im=np.load(f"{dst}/patch_{pat_id}.npz")
+                    except:
+                        flag=1
+                    if flag==0:
+                        print(f"{dst}/patch_{pat_id}.npz exist, continue")
+                        continue
                 
                 st=step_size*np.array((i,j,k))
                 ed=st+np.array(PATCH_SIZE)
                 pat=img[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
-                _,_,delta=get_half_delta(cyc.G1,cyc.G2,pat[np.newaxis,...,np.newaxis])
+                Fake,_,delta=get_half_delta(cyc.G1,cyc.G2,pat[np.newaxis,...,np.newaxis])
                 # print(delta[0].shape)
                 pds={f"delta{h+1}":delta[h] for h in range(3)}
+                for h in range(3):
+                    pds[f"Fake_{h+1}"]=Fake[h]
                 pds["T1"]=pat
                 pds["label"]=label
-                
                 np.savez(f"{dst}/patch_{pat_id}",**pds)
-                
-    
 
 def make_patch(src,dst,info):
     data=[f"{src}/{img_dir}" for img_dir in os.listdir(DATA_ORI)]
@@ -159,30 +165,48 @@ def get_fb(ds):
         f+=1-lab
     return t,f
 
+from sklearn.model_selection import KFold
+
 if __name__ == '__main__':
 
     print("Mods:","_".join(LOAD_MODS))
     df=pd.read_csv(CSV_PATH,dtype=str,keep_default_na=False)
     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
-    data=make_patch(DATA_ORI,PATCH_ORI,CSV_PATH)
+    data=np.array(make_patch(DATA_ORI,PATCH_ORI,CSV_PATH))
     print(data)
     
     test_rate=0.2
     train,test=train_test_split(
         data,test_size=test_rate,random_state=1919810
     )
-    
-    print(f"Train len: {len(train)}")
-    print(f"Test len: {len(test)}")
-    train_ds,test_ds=get_train_ds(train),get_test_ds(test)
-    
-    for ds,name in zip((train_ds,test_ds),("Train","Test")):
-        t,f=get_fb(ds)
-        print(name+":","MCI="+str(t),"NC="+str(f))
-    
-    clf=CNN_clf(LOAD_MODS,model="CNN3D_64x")
-    # clf.test(train_ds,32)
-    clf.train(train_ds,test_ds,32,200)
+
+    spdata=KFold(n_splits=5,shuffle=True,random_state=114514).split(data)
+
+    for i,(train, test) in enumerate(spdata):
+        train,test=data[train],data[test]
+        print("Fold",i)
+        print(f"Train len: {len(train)}")
+        print(f"Test len: {len(test)}")
+        print(train)
+        train_ds,test_ds=get_train_ds(train),get_test_ds(test)
+        
+        for ds,name in zip((train_ds,test_ds),("Train","Test")):
+            t,f=get_fb(ds)
+            print(name+":","MCI="+str(t),"NC="+str(f))
+        t,f=get_fb(train_ds)
+        clf=CNN_clf(LOAD_MODS,model="CNN3D_64x")
+        # print(cfweight)
+        from sklearn.utils import class_weight
+        y_train=list(y.numpy()[0] for x,y in train_ds)
+        class_weight = list(class_weight.compute_class_weight('balanced',
+                                                 classes=np.unique(y_train),
+                                                 y=y_train))
+        # class_weight={i:x for i,x in enumerate(class_weight)}
+        print("class_weight:",class_weight)
+        # clf.test(train_ds,32)
+        clf.train(train_ds,test_ds,32,200,cfweight=class_weight)
+        clf.test(test_ds,32)
+        
     # clf.test(test_ds,32)
     # m=CNN3D(2,2)
     # m.summary(line_length=120)

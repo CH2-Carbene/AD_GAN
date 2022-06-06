@@ -1,7 +1,7 @@
 #%%
 import numpy as np
 import tensorflow as tf
-
+import keras.backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers,optimizers,losses,Sequential,metrics
 from tensorflow.keras.layers import Input, Flatten, Conv3D, Conv3DTranspose, Dropout, ReLU, LeakyReLU, Concatenate, ZeroPadding3D
@@ -410,16 +410,27 @@ def CNN3D_64x(cls_num=2,mods=2):
     sfx=line_layers(lfc)
     # lfc=Merge()(fe_list)
     # print(lfc.shape)
-    
 
     opt=optimizers.Adadelta()
     loss_func=losses.SparseCategoricalCrossentropy()
-    metric=metrics.SparseCategoricalAccuracy()
+    def conf_mat_metrics(y_true,y_pred):
+        return tf.math.confusion_matrix(y_true,tf.argmax(y_pred,axis=1))
+    def tp(y_true,y_pred):
+        return conf_mat_metrics(y_true,y_pred)[0][0]
+    def fp(y_true,y_pred):
+        return conf_mat_metrics(y_true,y_pred)[0][1]
+    def fn(y_true,y_pred):
+        return conf_mat_metrics(y_true,y_pred)[1][0]
+    def tn(y_true,y_pred):
+        return conf_mat_metrics(y_true,y_pred)[1][1]
+
+    metric=[metrics.SparseCategoricalAccuracy()]#,tp,fp,fn,tn]
 
     model=Model(inputs=inputs, outputs=sfx)
     model.compile(optimizer=opt,loss=loss_func,metrics=metric)
     return model
 #%%
+
 from resnet3d import Resnet3DBuilder
 def Resnet3D(cls_num=2,mods=2):
     inputs = Input(shape=(mods,128,128,128,1), dtype='float32')
@@ -534,6 +545,9 @@ import datetime,os
 #         print("Test tot acc: ",acc)
 #         return vote_result
         # return acc
+
+from sklearn.metrics import confusion_matrix
+
 class CNN_clf:
     
     def __init__(self,mods=["T1"],model="Resnet"):
@@ -598,7 +612,8 @@ class CNN_clf:
         for i,mi in enumerate(self.model):
             mi.load_weights(f"{save_path}/c_{i}.h5")
 
-    def train(self,train_ds:tf.data.Dataset,val_ds:tf.data.Dataset,batch_size=32,epoches=200):
+    def train(self,train_ds:tf.data.Dataset,val_ds:tf.data.Dataset,batch_size=32,epoches=200,cfweight=[1,1]):
+        cfweight=tf.constant(cfweight,dtype=tf.float32)
         # print(tf.compat.v1.executing_eagerly())
 
         # for i,j in tdss[0]:
@@ -614,15 +629,17 @@ class CNN_clf:
         tds=train_ds
 
         tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
-        
+        tds=tds.map(lambda x,y: (x,y,cfweight[1]*y+cfweight[0]*(1-y)))
         # tds=tds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         # tds=tds.repeat(8)
         tds=tds.shuffle(self.BUFFER_SIZE,seed=114514)
         tds=tds.batch(batch_size)
+        tds=tds.prefetch(1)
 
         vds= val_ds
         vds=vds.flat_map(lambda x,y: zip(tf.data.Dataset.from_tensor_slices(x),tf.data.Dataset.from_tensor_slices(y)))
         vds=vds.batch(batch_size)
+        vds=vds.prefetch(1)
         # .unbatch().batch(batch_size)
         # print(tds.as_np_iterator().shape)
         # print(vds.as_np_iterator().shape)
@@ -641,6 +658,7 @@ class CNN_clf:
             # self.test(val_ds,batch_size=batch_size)
         self.save_checkpoint(epoches)
         # y_predit=[self.model[i].predict(vdss[i])for i in range(27)]
+        # self.train(val_ds,batch_size=batch_size)
         self.test(val_ds,batch_size=batch_size)
         # print("Val accuracy={}".format(self.test(val_ds)))
 
@@ -671,9 +689,12 @@ class CNN_clf:
                 vote[i][li]+=1
 
         vote_result=np.argmax(vote,axis=1)
+        
         tot_acc=(label==vote_result)
         acc=sum(tot_acc)/len(tot_acc)
         print("Test tot acc: ",acc)
+        print("confusion_matrix:")
+        print(tf.math.confusion_matrix(vote_result,label))
         return vote_result
 
 # # BUFFER_SIZE=20
@@ -743,7 +764,7 @@ class CNN_clf:
 #     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
 #     for fname in data:
 
-
+# from sklearn.utils import class_weight
 if __name__ == '__main__':
     model=CNN3D_64x(2,2)
     # tryds=np.zeros((10,3,128,128,128,1),dtype=(np.float32))
@@ -800,4 +821,5 @@ if __name__ == '__main__':
 #     # m=CNN3D(2,2)
 #     # m.summary(line_length=120)
     
-# %%
+
+

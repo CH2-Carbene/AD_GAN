@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J clf_64x
+#SBATCH -J clf64_metric
 #SBATCH -p bme_gpu
 #SBATCH --time=3000
 #SBATCH -N 1
@@ -7,8 +7,8 @@
 #SBATCH --mem 50g
 #SBATCH --gres=gpu:1
 
-#SBATCH -o clf_64x_%j_stdout.log
-#SBATCH -e clf_64x_%j_stderr.log
+#SBATCH -o clf64x_%j_stdout.log
+#SBATCH -e clf64x_%j_stderr.log
 
 echo ${SLURM_JOB_NODELIST}
 echo start on $(date)
