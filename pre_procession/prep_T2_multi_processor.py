@@ -72,6 +72,10 @@ def make_one_t2(pname,pdict,outputs):
         sh(f"tar -xzf {t2fp} -C ./tmp/",base_dir=".")
         t2fp=t2fp[:-7]
         sh(f"dcm2niix -b y -z y -x n -t n -m n -f t2 -o . -s n -v n {t2fp}",name="1_dcm2nii_t2")
+    elif t2fp.endswith(".zip"):
+        sh(f"unzip {t2fp} -d tmp",base_dir=".")
+        t2fp=t2fp[:-4]
+        sh(f"dcm2niix -b y -z y -x n -t n -m n -f t2 -o . -s n -v n {t2fp}",name="1_dcm2nii_t2")
     else:
         sh(f"dcm2niix -b y -z y -x n -t n -m n -f t2 -o . -s n -v n ../{t2fp}",name="1_dcm2nii_t2")
     

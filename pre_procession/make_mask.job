@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH -J make_mask
+#SBATCH -p bme_cpu
+#SBATCH --time=300
+#SBATCH --mem=16G
+#SBATCH -N 1
+#SBATCH -n 16 
+
+#SBATCH -o %j_stdout.log
+#SBATCH -e %j_stderr.log
+
+
+echo ${SLURM_JOB_NODELIST}
+echo start on $(date)
+
+module load apps/fsl/6.0
+module load apps/ants
+. ${FSLDIR}/etc/fslconf/fsl.sh
+# conda activate mri
+python ~/work/AD_GAN/pre_procession/make_mask_par.py 40
+
+echo end on $(date)

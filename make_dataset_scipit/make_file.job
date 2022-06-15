@@ -1,0 +1,23 @@
+SRC=/public_bme/data/gujch/brainmap/paired/
+DST=/public_bme/data/gujch/3D-CycleGan-Pytorch-MedImaging/mydatasets/
+
+mkdir -p ${DST}/T1
+mkdir -p ${DST}/FA
+
+for sub in $(ls ${SRC})
+do
+    cp ${SRC}/${sub}/T1.nii.gz ${DST}/T1/${sub}.nii.gz
+    cp ${SRC}/${sub}/FA.nii.gz ${DST}/FA/${sub}.nii.gz
+done
+
+#SBATCH -J get_ZS
+#SBATCH -p bme_cpu
+#SBATCH --time=1200
+#SBATCH -N 1
+#SBATCH -n 20
+#SBATCH --mem 40
+
+#SBATCH -o run_log/%j_stdout.log
+#SBATCH -e run_log/%j_stderr.log
+
+python organize_folder_structure.py --images=${DST}/T1 --labels=${DST}/FA --split=50

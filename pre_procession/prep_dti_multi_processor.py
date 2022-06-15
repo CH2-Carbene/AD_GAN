@@ -170,7 +170,7 @@ def make_one_dti_eddy(pname,pdict,outputs):
         raise TNFException("Topup not finished!")
         print("Warning: {pname} topup not finished, retrying...",file=sys.stderr)
     
-    sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected --ref_scan_no=0 --ol_nstd=4 --topup=tpbase -v",name="5_eddy")
+    sh("eddy_openmp --imain=data --mask=b0_brain_mask.nii.gz --bvals=dti.bval --bvecs=dti.bvec --acqp=acqp.txt --index=index.txt --out=data_corrected --ref_scan_no=0 --ol_nstd=4 --topup=tpbase --data_is_shelled -v",name="5_eddy")
 
     sh("rm data.nii",name="6_rmdata")
     sh("rm dti.nii.gz",name="6_rmdata")

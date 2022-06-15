@@ -41,7 +41,7 @@ patch_shape=(128,128,128)
 # %%
 # reload(GAN)
 load_mods = ["T1", "FA"]
-NEWPATH = "datasets/brainmap/npdata"
+NEWPATH = "/public_bme/data/gujch/brainmap/npdata"
 data = [f"{NEWPATH}/{img}"for img in os.listdir(NEWPATH)]
 
 # %%
@@ -69,7 +69,7 @@ visualize([t1_arg[..., 0], fa_arg[..., 0]])
 np.save("demo/t1_arg", t1_arg)
 np.save("demo/fa_arg", fa_arg)
 
-BUFFER_SIZE = 200
+BUFFER_SIZE = 300
 # The batch size of 1 produced better results for the U-Net in the original pix2pix experiment
 # st_range=np.array((227, 272, 227))-np.array((128,128,128))
 

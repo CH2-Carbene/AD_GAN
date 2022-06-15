@@ -163,7 +163,7 @@ def normalize(img:np.ndarray,save_rate=0.99)->np.ndarray:
 default_argfunc_pool=[
     Flip3D(axis=[1,0,0]),
     Brightness(down=0.8,up=1.2),
-    Rotation3D(max_rate=np.pi/18),#考虑减小到5°，消融对比
+    Rotation3D(max_rate=np.pi/18),#考虑减小到10°，消融对比
     # Elastic(sigma=2,order=[1,0]),
 ]
 

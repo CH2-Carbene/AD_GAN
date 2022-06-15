@@ -47,7 +47,7 @@ def make_one_flt(pname,pdict,pi,outputs):
     sh(f"bet t2_ori.nii.gz t2_brain_bet.nii.gz -R -f 0.3 -g 0 -m",name="1_bet_T2")
     # sh(f"epi_reg --epi=b0_brain.nii.gz --t1=t1_ori.nii.gz --t1brain=t1_ori_brain.nii.gz --echospacing=0.00068 --out=b0_2_t1",name="2_epi_reg")
 
-    sh(f"flirt -in t1_brain.nii.gz -ref ~/template/MNI152_T1_2mm_roi.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -interp trilinear -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
+    sh(f"flirt -in t1_brain.nii.gz -ref ~/template/MNI152_T1_0.8mm_brain.nii.gz -out T1 -omat t1_ACPC.mat -bins 256 -cost normmi -interp trilinear -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_ACPC")
     sh(f"flirt -in t2_brain_bet -ref t1_brain -omat t2_t1.mat -bins 256 -cost normmi -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 9",name="3_flirt_T1")
 
     sh(f"convert_xfm -concat t1_ACPC.mat t2_t1.mat -omat t2_ACPC.mat",name="4_convert_xfm")
@@ -147,8 +147,9 @@ if __name__=='__main__':
     finished_set=set(os.listdir("./paired_t2"))
     not1,not2=[],[]
     for i,pid in enumerate(sorted(ptdict.keys())):
-        if str(i) in finished_set:
-            show(f"{i}_{pid} has finished, passed.")
+        pati=pid.replace('/','_').replace('\\','_')
+        if str(pati) in finished_set:
+            show(f"{pati} has finished, passed.")
             continue
         ptdir=ptdict[pid]
         t1dir=ptdir.get("t1")
@@ -161,7 +162,8 @@ if __name__=='__main__':
             show(f"{pid} have no t2")
             not2.append(pid)
             continue
-        mulpool_flt.apply_async(run_make_flt,args=(pid,ptdir,i,),error_callback=lambda e:fail_set.add(e.args[0]))
+        
+        mulpool_flt.apply_async(run_make_flt,args=(pid,ptdir,pati,),error_callback=lambda e:fail_set.add(e.args[0]))
     mulpool_flt.close()
     mulpool_flt.join()
     show(f"No t1:{not1}")

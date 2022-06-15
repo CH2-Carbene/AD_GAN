@@ -83,6 +83,29 @@ def Reslayer(Nf, ks):
         return outputs
     return func
 
+def Concatlayer(Nf, ks):
+    """
+    Bottom concat layer.
+    """
+    def func(inputs):
+        x = inputs
+        x = G_conv3d(Nf, ks=ks, st=1, pad='reflect',do_relu=False)(x)
+        x = Concatenate([inputs,x])
+        x = G_conv3d(Nf, ks=ks, st=1, pad='reflect',lrelu=0.2)(x)
+        return x
+    return func
+
+def bottlenek(layer, Nf, ks):
+    x = Conv3D(Nf, kernel_size=ks, strides=2, kernel_initializer='he_normal', padding='same')(layer)
+    x = InstanceNormalization()(x)
+    x = LeakyReLU()(x)
+    for i in range(4):
+        y = Conv3D(Nf, kernel_size=ks, strides=1, kernel_initializer='he_normal', padding='same')(x)
+        x = InstanceNormalization()(y)
+        x = LeakyReLU()(x)
+        x = Concatenate()([x, y])
+    return x
+
 class ReflectionPadding3D(Layer):
     def __init__(self, padding, **kwargs):
         self.padding = tuple(padding)

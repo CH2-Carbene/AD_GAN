@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from AD_classify.model import CNN_clf
+from units.base import visualize
 from units.prep import random_jitter
 from sys import argv
 # BUFFER_SIZE=20
@@ -25,6 +26,7 @@ def load_np_data(dirname,load_mods=["T1"],argu=False,select_shape=(128,128,128))
             imgs=random_jitter(imgs,only_select=False,select_shape=select_shape)
         
         label=0. if data["label"]=="NC" else 1.
+        # print("label=",label)
         pat.append(tf.convert_to_tensor(imgs[...,tf.newaxis]))
         lab.append(tf.convert_to_tensor(label))
     # data=data[:,st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
@@ -32,7 +34,7 @@ def load_np_data(dirname,load_mods=["T1"],argu=False,select_shape=(128,128,128))
     return pat,lab
 
 
-train_load=lambda filename:tf.numpy_function(func=load_np_data,inp=[filename,LOAD_MODS,False],Tout=(tf.float32,tf.float32))
+train_load=lambda filename:tf.numpy_function(func=load_np_data,inp=[filename,LOAD_MODS,True],Tout=(tf.float32,tf.float32))
 test_load=lambda filename:tf.numpy_function(func=load_np_data,inp=[filename,LOAD_MODS,False],Tout=(tf.float32,tf.float32))
 
 
@@ -88,7 +90,7 @@ def prep_data(data,plist=None):
         raise Exception(f"{data} Failed: {e}\n")
 
 
-# ROOT="/public_bme/data/gujch/ZS_t1_full/"
+ROOT="/public_bme/data/gujch/ZS_t1_full/"
 ROOT="datasets/ZS_t1_full/"
 
 DATA_ORI=ROOT+"05_ZS/result/"
@@ -96,7 +98,7 @@ PATCH_ORI=ROOT+"patches/"
 CSV_PATH=ROOT+"Diagnosis Information.csv"
 PATCH_SIZE=(128,128,128)
 PATCH_NUM=(3,3,3)
-# MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda10.0_AdamOpt_CH_Res_20220517-021959/Pet_cyc/step_133400/"
+MODEL_PATH="/hpc/data/home/bme/v-gujch/work/AD_GAN/logs/T1-FA_lamda10.0_AdamOpt_CH_Res_20220517-021959/Pet_cyc/step_133400/"
 MODEL_PATH="logs/T1_FA_l=10/"
 
 # MODEL_PATH="pet_cycgan"
@@ -148,6 +150,15 @@ def make_patch(src,dst,info):
                 break
     return datalist
 
+def get_fb(ds):
+    t,f=0,0
+    for img,lab in ds.as_numpy_iterator():
+        lab=lab[0]
+        # print(lab)
+        t+=lab
+        f+=1-lab
+    return t,f
+
 if __name__ == '__main__':
 
     print("Mods:","_".join(LOAD_MODS))
@@ -155,18 +166,26 @@ if __name__ == '__main__':
     plist=[(value["PID"],value["diagonsis"]) for value in df[df["diagonsis"]!=""][["PID","diagonsis"]].iloc()]
     data=make_patch(DATA_ORI,PATCH_ORI,CSV_PATH)
     print(data)
-
-    test_rate=0.3
+    
+    test_rate=0.18
     train_val,test=train_test_split(
         data,test_size=test_rate,random_state=1919810
     )
     train,val=train_test_split(
-        train_val,test_size=test_rate,random_state=114514
+        train_val,test_size=1,random_state=114514
     )
     print(f"Train len: {len(train)}")
     print(f"Val len: {len(val)}")
     print(f"Test len: {len(test)}")
     train_ds,val_ds,test_ds=get_train_ds(train),get_test_ds(val),get_test_ds(test)
+    
+    for ds,name in zip((train_ds,val_ds,test_ds),("Train","Val","Test")):
+        t,f=get_fb(ds)
+        print(name+":","MCI="+str(t),"NC="+str(f))
+#%%
+    # x,y=list(train_ds.take(1).as_numpy_iterator())[0]
+    # img=x[0,0,...,0]
+    # visualize(img)
     # print(np.load(train[0])["label"])
     # e_img,e_lab=load_np_data(train[0],argu="False")
     # print(e_img.shape)
@@ -188,7 +207,6 @@ if __name__ == '__main__':
 
     # model.fit(npds,nplb,batch_size=4)
 
-    # input()
     
     clf=CNN_clf(LOAD_MODS)
     # clf.test(train_ds,32)

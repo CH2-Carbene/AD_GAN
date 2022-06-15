@@ -1,0 +1,21 @@
+#!/bin/bash
+#SBATCH -J pre_flt
+#SBATCH -p bme_cpu
+#SBATCH --time=3000
+#SBATCH --mem=150G
+#SBATCH -N 1
+#SBATCH -n 41 
+
+#SBATCH -o %j_stdout.log
+#SBATCH -e %j_stderr.log
+
+echo ${SLURM_JOB_NODELIST}
+echo start on $(date)
+
+module load apps/fsl/6.0
+module load apps/ants
+. ${FSLDIR}/etc/fslconf/fsl.sh
+# conda activate mri
+python ~/work/AD_GAN/pre_procession/prep_flt_ZS_Data.py 40
+
+echo end on $(date)

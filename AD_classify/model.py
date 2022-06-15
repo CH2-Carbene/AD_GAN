@@ -771,7 +771,8 @@ if __name__ == '__main__':
     # trylb=np.zeros((10,1),dtype=(np.float32))
     # model.fit(x=[tryds],y=[trylb])
     print(model.summary(120))
-    
+    tf.keras.utils.plot_model(model,to_file="AD_classify/CNN3D_64x.png",show_shapes=True)
+    # tf.keras.utils.plot_model(D,to_file="pet_cycgan/D.png",show_shapes=True)
 #     DATA_ORI="/public_bme/data/gujch/ZS_t1_full/05_ZS/result"
 #     PATCH_ORI="/public_bme/data/gujch/ZS_t1_full/patches"
 #     CSV_PATH="/public_bme/data/gujch/ZS_t1_full/Diagnosis Information.csv"

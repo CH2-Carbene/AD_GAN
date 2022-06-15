@@ -19,6 +19,6 @@ echo start on $(date)
 # conda activate mri
 module load 7/compiler/cuda/11.0
 cd /hpc/data/home/bme/v-gujch/work/AD_GAN
-python train_GAN.py
+python train_GAN_pix2pix.py
 
 echo end on $(date)

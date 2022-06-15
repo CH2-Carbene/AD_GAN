@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH -J fnlit
+#SBATCH -p bme_cpu
+#SBATCH --time=3000
+#SBATCH --mem=300G
+#SBATCH -N 1
+#SBATCH -n 46
+
+#SBATCH -o %j_stdout.log
+#SBATCH -e %j_stderr.log
+
+
+echo ${SLURM_JOB_NODELIST}
+echo start on $(date)
+
+module load apps/fsl/6.0
+. ${FSLDIR}/etc/fslconf/fsl.sh
+
+module load apps/ants
+export ANTSPATH=/public/software/apps/ants/bin
+
+# conda activate mri
+python ~/work/AD_GAN/pre_procession/fnlit.py 46
+
+echo end on $(date)

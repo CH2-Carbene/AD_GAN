@@ -81,15 +81,29 @@ def generate_delta(model,in_path,out_path):
     img=normalize(nimg.get_fdata())
     afi,hed=nimg.affine.copy(),nimg.header.copy()
 
+    st=(17, 26, 5)
+    ed=(-18, -22, -30)
+    t1=img.astype("float32")[st[0]:ed[0],st[1]:ed[1],st[2]:ed[2]]
     # img=nimg.get_fdata()#[17:-18,26:-22,5:-30]
-    t1=img
+    
+    p,q,r=np.array(img.shape)//2
+    k=64
+    t1=img[p-k:p+k,q-k:q+k,r-k:r+k]
+
+    # p,q,r=np.array(t1.shape)
+    # # t1=img[p-88:p+88,q-88:q+88,r-88:r+88]
+    # k=256
+    # s,t,u=k-p,k-q,k-r
+    # print(s,t,u)
+    # t1=np.pad(t1,((s//2,s-s//2),(t//2,t-t//2),(u//2,u-u//2)))
+    
     SA_A,SA_B,d_A=half_delta_full(G1,G2,t1,model.input_shape[:-1])
 
     # vis_img(list(SA_A))
     # vis_img(list(SA_B))
     # vis_img_delta(list(d_A))
 
-    ori_nii=nib.Nifti1Image(img,afi,hed)
+    ori_nii=nib.Nifti1Image(t1,afi,hed)
     nib.save(ori_nii,rf"{out_path}/T1_ori.nii.gz")
 
     for i in range(1,4):
@@ -107,45 +121,45 @@ def generate_delta(model,in_path,out_path):
     # nib.save(out_path)
     return SA_A,SA_B,d_A
 
-def calc_full_image(M:Model,img:np.ndarray):
-    shape=M.input_shape[1:-1]
-    p,q,r=img.shape
-    overlap=np.array(shape)//2
-    sum,tms=np.zeros_like(img),np.zeros_like(img)
+# def calc_full_image(M:Model,img:np.ndarray):
+#     shape=M.input_shape[1:-1]
+#     p,q,r=img.shape
+#     overlap=np.array(shape)//2
+#     sum,tms=np.zeros_like(img),np.zeros_like(img)
 
-    i,fi=0,0
-    while fi==0:
+#     i,fi=0,0
+#     while fi==0:
         
-        if i+shape[0]>=p:
-            i=p-shape[0]
-            fi=1
-        # print("i: ",i)
-        j,fj=0,0
-        while fj==0:
+#         if i+shape[0]>=p:
+#             i=p-shape[0]
+#             fi=1
+#         # print("i: ",i)
+#         j,fj=0,0
+#         while fj==0:
             
-            if j+shape[1]>=q:
-                j=q-shape[1]
-                fj=1
+#             if j+shape[1]>=q:
+#                 j=q-shape[1]
+#                 fj=1
 
-            k,fk=0,0
-            while fk==0:
+#             k,fk=0,0
+#             while fk==0:
                 
-                if k+shape[2]>=r:
-                    k=r-shape[2]
-                    fk=1
+#                 if k+shape[2]>=r:
+#                     k=r-shape[2]
+#                     fk=1
                 
-                sum[i:i+shape[0],j:j+shape[1],k:k+shape[2]]+=M(img[np.newaxis,i:i+shape[0],j:j+shape[1],k:k+shape[2],np.newaxis])[0,...,0]
-                tms[i:i+shape[0],j:j+shape[1],k:k+shape[2]]+=1
+#                 sum[i:i+shape[0],j:j+shape[1],k:k+shape[2]]+=M(img[np.newaxis,i:i+shape[0],j:j+shape[1],k:k+shape[2],np.newaxis])[0,...,0]
+#                 tms[i:i+shape[0],j:j+shape[1],k:k+shape[2]]+=1
 
-                k+=overlap[2]
-            j+=overlap[1]
-        i+=overlap[0]
-    return sum/tms
+#                 k+=overlap[2]
+#             j+=overlap[1]
+#         i+=overlap[0]
+#     return sum/tms
 
-def half_delta_full(G1,G2:Model,img:np.ndarray):
-    shape=(128,128,128)
+def half_delta_full(G1,G2:Model,img:np.ndarray,shape=(128,128,128)):
+    # shape=()
     p,q,r=img.shape
-    overlap=np.array(shape)//2
+    overlap=np.array(shape)//2#np.array(shape)//2
     sum,tms=np.zeros_like(img),np.zeros_like(img)
 
     SA_A,SA_B,d_A=[np.zeros((3,)+img.shape)for i in range(3)]
@@ -191,6 +205,7 @@ def half_delta_full(G1,G2:Model,img:np.ndarray):
             Si[i]/=tms
     
     return SA_A,SA_B,d_A
+
 # %%
 from pet_cycgan.model import Cycgan_pet
 from units.base import vis_img, vis_img_delta, visualize
@@ -226,15 +241,25 @@ for i in range(1,4):
     nib.save(delta_nii,rf"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1\delta_{i}.nii.gz")
 #%% GAN MCI
 generate_delta(cycmod,r"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1\t1_brain_ACPC.nii.gz",rf"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1")
-#%% GAN NC
+#%% GAN NC CH
 
 from pet_cycgan.model import Cycgan_pet
 from units.base import vis_img, vis_img_delta, visualize
 
-SAVE_PATH="logs/54612"
-cycmod=Cycgan_pet()
+SAVE_PATH="logs/T1_FA_healthy"
+cycmod=Cycgan_pet(input_shape=(128,128,128,1),G_net="CH_NF")
 cycmod.load_model(SAVE_PATH)
-generate_delta(cycmod,r"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1_local\t1_brain_ACPC.nii.gz",rf"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1_local")
+res=generate_delta(cycmod,r"C:\Users\CH2\Documents\datasets\Zhongshan_prep\delta\MCI\ZS13339215\T1.nii.gz",rf"C:\Users\CH2\Documents\datasets\Zhongshan_prep\delta\MCI\ZS13339215")
+
+#%%
+
+from pet_cycgan.model import Cycgan_pet
+from units.base import vis_img, vis_img_delta, visualize
+
+SAVE_PATH="logs/T1_FA_healthy"
+cycmod=Cycgan_pet(input_shape=(128,128,128,1),G_net="CH_NF")
+cycmod.load_model(SAVE_PATH)
+res=generate_delta(cycmod,r"C:\Users\CH2\Documents\datasets\brainmap\paired\0\generator\FA_cut\FA.nii.gz",rf"C:\Users\CH2\Documents\datasets\brainmap\paired\0\generator\FA_cut")
 
 # delta_nii = nib.Nifti1Image(d_A[0],afi,hed)
 # nib.save(delta_nii,r"C:\Users\CH2\Documents\大学课程\毕业设计\work\4.26\mci\1\delta_1.nii.gz")
@@ -253,3 +278,8 @@ example["FA"]
 # %%
 np.min(example["T1"])
 # %%
+from typing import List
+def h(a:List[int]=[]):
+    return a+[1,1,4,5,1,4]
+
+h(a=[10])

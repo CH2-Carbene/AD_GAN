@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -J pre_dti
+#SBATCH -p bme_cpu
+#SBATCH --time=480
+#SBATCH -N 1
+#SBATCH -n 36
+#SBATCH -o stdout.log
+#SBATCH -e stderr.log
+
+echo ${SLURM_JOB_NODELIST}
+echo start on $(date)
+
+module load apps/fsl/6.0
+. ${FSLDIR}/etc/fslconf/fsl.sh
+python ~/work/AD_GAN/pre_procession/prep_dti.py
+
+echo end on $(date)

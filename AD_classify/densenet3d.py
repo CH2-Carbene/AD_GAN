@@ -936,7 +936,7 @@ def __create_fcn_dense_net(nb_classes, img_input, include_top, nb_dense_block=5,
 
         return x
 
-
+import tensorflow as tf
 if __name__ == '__main__':
     model_fcn = DenseNet3D_FCN((64, 64, 64, 1), nb_dense_block=5, growth_rate=16,
                                nb_layers_per_block=4, upsampling_type='upsampling', classes=1, activation='sigmoid')
@@ -944,3 +944,4 @@ if __name__ == '__main__':
 
     model = DenseNet3DImageNet121((32, 32, 32, 1))
     model.summary()
+    tf.keras.utils.plot_model(model,to_file="AD_classify/Dense121.png",show_shapes=True)

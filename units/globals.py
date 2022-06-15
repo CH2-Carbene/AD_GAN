@@ -1,4 +1,4 @@
-DEBUG=False
+DEBUG=True
 NEWPATH="datasets/brainmap/npdata"
 BATCH_SIZE=4
 ALPHA=5
